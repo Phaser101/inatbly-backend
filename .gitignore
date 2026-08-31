@@ -8,6 +8,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/main/Dotnet.gitignore
 
 # Build results
+.vs/
+*.user
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -38,6 +40,20 @@ ScaffoldingReadMe.txt
 
 # dotenv environment variables file
 .env
+.env.*
+
+# Local configuration and secrets
+appsettings.Local.json
+*.pfx
+*.p12
+
+# Local Azure state and parameters
+.azure/
+*.parameters.local.json
+
+# Local SQL Server database files
+*.mdf
+*.ldf
 
 # Others
 ~$*

@@ -1,0 +1,82 @@
+name: Backend CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-package:
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools and dependencies
+        shell: pwsh
+        run: |
+          dotnet tool restore
+          dotnet restore Intably.sln
+
+      - name: Build
+        run: dotnet build Intably.sln --configuration Release --no-restore
+
+      - name: Test
+        run: >-
+          dotnet test Intably.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=tests.trx"
+          --results-directory TestResults
+
+      - name: Publish API
+        shell: pwsh
+        run: |
+          dotnet publish src/Intably.Api/Intably.Api.csproj `
+            --configuration Release `
+            --no-build `
+            --output artifacts/publish
+
+      - name: Build idempotent migration bundle
+        shell: pwsh
+        run: |
+          dotnet ef migrations bundle `
+            --project src/Intably.Infrastructure `
+            --startup-project src/Intably.Api `
+            --configuration Release `
+            --target-runtime linux-x64 `
+            --output artifacts/publish/efbundle `
+            --force
+
+      - name: Create deployment package
+        shell: pwsh
+        run: Compress-Archive -Path artifacts/publish/* -DestinationPath artifacts/intably-api.zip
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: TestResults
+          if-no-files-found: ignore
+
+      - name: Upload deployment artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: intably-api
+          path: artifacts/intably-api.zip
+          if-no-files-found: error
+          retention-days: 14

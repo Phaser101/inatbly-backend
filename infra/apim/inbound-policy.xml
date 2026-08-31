@@ -1,0 +1,198 @@
+<!--
+  Apply this policy at the Intably API scope.
+
+  Required APIM named values:
+    intably-api-audience-v2    Expected v2 access-token audience.
+    intably-api-audience-v1    Expected v1 access-token audience.
+    intably-frontend-client-id Allowed frontend application (client) ID.
+    intably-allowed-tenant-ids Comma-separated organizational tenant GUIDs.
+    intably-gateway-key        Secret key known only to APIM and the backend.
+    intably-backend-base-url   Private backend origin URL.
+
+  The API must remain associated with an APIM product that requires a
+  subscription. This policy intentionally does not remove or replace
+  Ocp-Apim-Subscription-Key.
+-->
+<policies>
+  <inbound>
+    <base />
+
+    <!--
+      APIM cannot wildcard-delete headers. Reject unknown names in the reserved
+      namespace so no caller-controlled X-Intably-* value can reach the backend;
+      the complete known set is explicitly deleted and rebuilt below.
+    -->
+    <choose>
+      <when condition="@(context.Request.Headers.Any(header =>
+          header.Key.StartsWith(&quot;X-Intably-&quot;, StringComparison.OrdinalIgnoreCase)
+          &amp;&amp; !new [] {
+              &quot;X-Intably-Tenant-Id&quot;,
+              &quot;X-Intably-User-Id&quot;,
+              &quot;X-Intably-User-Name&quot;,
+              &quot;X-Intably-User-Email&quot;,
+              &quot;X-Intably-Gateway-Key&quot;
+          }.Contains(header.Key, StringComparer.OrdinalIgnoreCase)))">
+        <return-response>
+          <set-status code="400" reason="Bad Request" />
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <set-body>{"error":"The request contains an unsupported reserved header."}</set-body>
+        </return-response>
+      </when>
+    </choose>
+
+    <!--
+      "organizations" accepts work/school directories only. APIM validates the
+      rotating Entra signing keys, signature, issuer, lifetime, audience, and
+      frontend client. client-application-ids checks azp for v2 tokens and
+      appid for v1 tokens.
+    -->
+    <validate-azure-ad-token
+      tenant-id="organizations"
+      header-name="Authorization"
+      failed-validation-httpcode="401"
+      failed-validation-error-message="A valid organizational Entra access token is required."
+      output-token-variable-name="validated-jwt">
+      <client-application-ids>
+        <application-id>{{intably-frontend-client-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>{{intably-api-audience-v2}}</audience>
+        <audience>{{intably-api-audience-v1}}</audience>
+      </audiences>
+    </validate-azure-ad-token>
+
+    <!--
+      Defense in depth: bind issuer to tid, reject the consumer tenant, require
+      immutable user identifiers, and reject conflicting v1/v2 client claims.
+    -->
+    <set-variable name="intably-identity-is-valid" value="@{
+        var jwt = (Jwt)context.Variables[&quot;validated-jwt&quot;];
+        var version = jwt.Claims.GetValueOrDefault(&quot;ver&quot;, &quot;&quot;);
+        var tenantId = jwt.Claims.GetValueOrDefault(&quot;tid&quot;, &quot;&quot;);
+        var objectId = jwt.Claims.GetValueOrDefault(&quot;oid&quot;, &quot;&quot;);
+        var azp = jwt.Claims.GetValueOrDefault(&quot;azp&quot;, &quot;&quot;);
+        var appid = jwt.Claims.GetValueOrDefault(&quot;appid&quot;, &quot;&quot;);
+        var allowedClientId = &quot;{{intably-frontend-client-id}}&quot;;
+        var allowedTenantIds = &quot;{{intably-allowed-tenant-ids}}&quot;
+            .Split(new [] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(value => value.Trim())
+            .ToArray();
+        var consumerTenantId = &quot;9188040d-6c67-4c5b-b112-36a304b66dad&quot;;
+
+        Guid parsedTenantId;
+        Guid parsedObjectId;
+        if (!Guid.TryParse(tenantId, out parsedTenantId)
+            || !Guid.TryParse(objectId, out parsedObjectId)
+            || tenantId.Equals(consumerTenantId, StringComparison.OrdinalIgnoreCase)
+            || !allowedTenantIds.Any(
+                value => value.Equals(tenantId, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
+        var expectedIssuer = version == &quot;1.0&quot;
+            ? &quot;https://sts.windows.net/&quot; + tenantId + &quot;/&quot;
+            : &quot;https://login.microsoftonline.com/&quot; + tenantId + &quot;/v2.0&quot;;
+        if (!jwt.Issuer.Equals(expectedIssuer, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        if (version == &quot;2.0&quot;)
+        {
+            return azp.Equals(allowedClientId, StringComparison.OrdinalIgnoreCase)
+                &amp;&amp; (String.IsNullOrEmpty(appid)
+                    || appid.Equals(allowedClientId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (version == &quot;1.0&quot;)
+        {
+            return appid.Equals(allowedClientId, StringComparison.OrdinalIgnoreCase)
+                &amp;&amp; (String.IsNullOrEmpty(azp)
+                    || azp.Equals(allowedClientId, StringComparison.OrdinalIgnoreCase));
+        }
+
+        return false;
+      }" />
+
+    <set-variable name="intably-user-email" value="@{
+        var jwt = (Jwt)context.Variables[&quot;validated-jwt&quot;];
+        var email = jwt.Claims.GetValueOrDefault(&quot;preferred_username&quot;, &quot;&quot;);
+        if (String.IsNullOrWhiteSpace(email))
+        {
+            email = jwt.Claims.GetValueOrDefault(&quot;email&quot;, &quot;&quot;);
+        }
+        if (String.IsNullOrWhiteSpace(email))
+        {
+            email = jwt.Claims.GetValueOrDefault(&quot;upn&quot;, &quot;&quot;);
+        }
+        return email;
+      }" />
+
+    <choose>
+      <when condition="@{
+          if (!(bool)context.Variables[&quot;intably-identity-is-valid&quot;])
+          {
+              return true;
+          }
+
+          var jwt = (Jwt)context.Variables[&quot;validated-jwt&quot;];
+          return String.IsNullOrWhiteSpace(jwt.Claims.GetValueOrDefault(&quot;name&quot;, &quot;&quot;))
+              || String.IsNullOrWhiteSpace((string)context.Variables[&quot;intably-user-email&quot;]);
+        }">
+        <return-response>
+          <set-status code="401" reason="Unauthorized" />
+          <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+          </set-header>
+          <set-body>{"error":"The access token does not contain a usable Intably identity."}</set-body>
+        </return-response>
+      </when>
+    </choose>
+
+    <!-- Remove every reserved identity header before recreating the contract. -->
+    <set-header name="X-Intably-Tenant-Id" exists-action="delete" />
+    <set-header name="X-Intably-User-Id" exists-action="delete" />
+    <set-header name="X-Intably-User-Name" exists-action="delete" />
+    <set-header name="X-Intably-User-Email" exists-action="delete" />
+    <set-header name="X-Intably-Gateway-Key" exists-action="delete" />
+
+    <set-header name="X-Intably-Tenant-Id" exists-action="override">
+      <value>@{
+          var jwt = (Jwt)context.Variables["validated-jwt"];
+          return Uri.EscapeDataString(jwt.Claims.GetValueOrDefault("tid", ""));
+        }</value>
+    </set-header>
+    <set-header name="X-Intably-User-Id" exists-action="override">
+      <value>@{
+          var jwt = (Jwt)context.Variables["validated-jwt"];
+          return Uri.EscapeDataString(jwt.Claims.GetValueOrDefault("oid", ""));
+        }</value>
+    </set-header>
+    <set-header name="X-Intably-User-Name" exists-action="override">
+      <value>@{
+          var jwt = (Jwt)context.Variables["validated-jwt"];
+          return Uri.EscapeDataString(jwt.Claims.GetValueOrDefault("name", ""));
+        }</value>
+    </set-header>
+    <set-header name="X-Intably-User-Email" exists-action="override">
+      <value>@(Uri.EscapeDataString((string)context.Variables["intably-user-email"]))</value>
+    </set-header>
+    <set-header name="X-Intably-Gateway-Key" exists-action="override">
+      <value>{{intably-gateway-key}}</value>
+    </set-header>
+
+    <set-backend-service base-url="{{intably-backend-base-url}}" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

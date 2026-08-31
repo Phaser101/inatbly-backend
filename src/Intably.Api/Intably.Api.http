@@ -1,0 +1,6 @@
+@Intably.Api_HostAddress = http://localhost:5089
+
+GET {{Intably.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
