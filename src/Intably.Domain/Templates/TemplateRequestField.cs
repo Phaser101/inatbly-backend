@@ -17,10 +17,7 @@ public sealed class TemplateRequestField : Entity
         RequestFieldType type,
         bool isRequired,
         string placeholder,
-        RequestFieldSource source,
-        Guid? sourceFieldSetId,
-        string? sourceFieldSetName,
-        int? sourceFieldSetVersion)
+        RequestFieldSource source)
     {
         TemplateVersionId = templateVersionId;
         Order = order;
@@ -29,9 +26,6 @@ public sealed class TemplateRequestField : Entity
         IsRequired = isRequired;
         Placeholder = placeholder;
         Source = source;
-        SourceFieldSetId = sourceFieldSetId;
-        SourceFieldSetName = sourceFieldSetName;
-        SourceFieldSetVersion = sourceFieldSetVersion;
     }
 
     public Guid TemplateVersionId { get; private set; }
@@ -48,12 +42,6 @@ public sealed class TemplateRequestField : Entity
 
     public RequestFieldSource Source { get; private set; }
 
-    public Guid? SourceFieldSetId { get; private set; }
-
-    public string? SourceFieldSetName { get; private set; }
-
-    public int? SourceFieldSetVersion { get; private set; }
-
     public IReadOnlyCollection<TemplateRequestFieldOption> Options => _options;
 
     internal static TemplateRequestField Create(
@@ -64,9 +52,6 @@ public sealed class TemplateRequestField : Entity
         bool isRequired,
         string placeholder,
         RequestFieldSource source,
-        Guid? sourceFieldSetId,
-        string? sourceFieldSetName,
-        int? sourceFieldSetVersion,
         IEnumerable<string> options)
     {
         var field = new TemplateRequestField(
@@ -76,10 +61,7 @@ public sealed class TemplateRequestField : Entity
             type,
             isRequired,
             placeholder.Trim(),
-            source,
-            sourceFieldSetId,
-            sourceFieldSetName?.Trim(),
-            sourceFieldSetVersion);
+            source);
 
         foreach (var (value, optionOrder) in options.Select((value, index) => (value, index)))
         {

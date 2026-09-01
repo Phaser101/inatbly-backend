@@ -65,9 +65,6 @@ public sealed class TemplateVersion : Entity
         bool isRequired,
         string placeholder,
         RequestFieldSource source,
-        Guid? sourceFieldSetId,
-        string? sourceFieldSetName,
-        int? sourceFieldSetVersion,
         IEnumerable<string> options)
     {
         _requestFields.Add(
@@ -79,9 +76,6 @@ public sealed class TemplateVersion : Entity
                 isRequired,
                 placeholder,
                 source,
-                sourceFieldSetId,
-                sourceFieldSetName,
-                sourceFieldSetVersion,
                 options));
     }
 

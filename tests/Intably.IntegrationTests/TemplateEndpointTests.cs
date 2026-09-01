@@ -138,7 +138,7 @@ public sealed class TemplateEndpointTests
 
         Assert.NotNull(updated);
         Assert.Equal("Release readiness v2", updated.Name);
-        Assert.Equal(1, updated.Version);
+        Assert.Equal(2, updated.Version);
 
         var publishedSnapshot = await client.GetFromJsonAsync<TemplateDetails>(
             $"/api/templates/{created.Ptrg}/published");
@@ -239,9 +239,6 @@ public sealed class TemplateEndpointTests
                     true,
                     "Enter the release name",
                     "manual",
-                    null,
-                    null,
-                    null,
                     []),
             ],
             [

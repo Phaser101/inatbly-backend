@@ -48,9 +48,6 @@ internal sealed partial class TemplateService(
                 field.Required,
                 field.Placeholder,
                 ParseFieldSource(field.Source),
-                field.SourceFieldSetId,
-                field.SourceFieldSetName,
-                field.SourceFieldSetVersion,
                 field.Options);
         }
 

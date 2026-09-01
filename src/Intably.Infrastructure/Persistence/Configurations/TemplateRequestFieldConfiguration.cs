@@ -16,7 +16,6 @@ internal sealed class TemplateRequestFieldConfiguration
         builder.Property(field => field.Type).HasConversion<string>();
         builder.Property(field => field.Placeholder).HasMaxLength(500);
         builder.Property(field => field.Source).HasConversion<string>();
-        builder.Property(field => field.SourceFieldSetName).HasMaxLength(200);
 
         builder
             .HasIndex(field => new { field.TemplateVersionId, field.Order })

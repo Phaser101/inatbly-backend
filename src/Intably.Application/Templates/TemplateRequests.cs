@@ -12,9 +12,6 @@ public sealed record SaveTemplateRequestField(
     bool Required,
     string Placeholder,
     string Source,
-    Guid? SourceFieldSetId,
-    string? SourceFieldSetName,
-    int? SourceFieldSetVersion,
     IReadOnlyCollection<string> Options);
 
 public sealed record SaveTemplateStep(

@@ -299,9 +299,6 @@ public sealed class ProcessEndpointTests
                         true,
                         "",
                         "manual",
-                        null,
-                        null,
-                        null,
                         []),
                 ],
                 [

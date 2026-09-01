@@ -125,9 +125,6 @@ internal sealed partial class TemplateService
                     field.IsRequired,
                     field.Placeholder,
                     field.Source.ToString(),
-                    field.SourceFieldSetId,
-                    field.SourceFieldSetName,
-                    field.SourceFieldSetVersion,
                     field.Options
                         .OrderBy(option => option.Order)
                         .Select(option => option.Value)

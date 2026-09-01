@@ -32,9 +32,6 @@ public sealed record TemplateRequestFieldDetails(
     bool Required,
     string Placeholder,
     string Source,
-    Guid? SourceFieldSetId,
-    string? SourceFieldSetName,
-    int? SourceFieldSetVersion,
     IReadOnlyCollection<string> Options);
 
 public sealed record TemplateStepDetails(

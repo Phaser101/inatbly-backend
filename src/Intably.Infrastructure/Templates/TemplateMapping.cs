@@ -15,7 +15,7 @@ internal sealed partial class TemplateService
             template.Id,
             version.Name,
             version.Description,
-            template.PublishedVersion == 0 ? 1 : template.PublishedVersion,
+            version.Version,
             template.Status.ToString(),
             template.PublishedVersion > 0,
             template.OwnerUserId,
@@ -41,9 +41,6 @@ internal sealed partial class TemplateService
             field.IsRequired,
             field.Placeholder,
             ToCamelCase(field.Source.ToString()),
-            field.SourceFieldSetId,
-            field.SourceFieldSetName,
-            field.SourceFieldSetVersion,
             field.Options
                 .OrderBy(option => option.Order)
                 .Select(option => option.Value)
