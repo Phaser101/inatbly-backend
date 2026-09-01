@@ -4,7 +4,8 @@ public sealed record SaveTemplateRequest(
     string Name,
     string Description,
     IReadOnlyCollection<SaveTemplateRequestField> RequestFields,
-    IReadOnlyCollection<SaveTemplateStep> Steps);
+    IReadOnlyCollection<SaveTemplateStep> Steps,
+    bool RequireSequentialSteps = false);
 
 public sealed record SaveTemplateRequestField(
     string Label,

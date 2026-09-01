@@ -83,7 +83,8 @@ internal sealed partial class ProcessService
             request.Name,
             actor.Grg,
             actor.DisplayName,
-            UtcNow);
+            UtcNow,
+            version.RequireSequentialSteps);
 
         foreach (var field in version.RequestFields.OrderBy(field => field.Order))
         {

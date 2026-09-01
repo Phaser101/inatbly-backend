@@ -4,6 +4,7 @@ using Intably.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Intably.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(IntablyDbContext))]
-    partial class IntablyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901093223_AddSequentialStepCompletion")]
+    partial class AddSequentialStepCompletion
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -409,10 +412,6 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetimeoffset");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Name")
-                        .IsUnique()
-                        .HasDatabaseName("UX_ProcessTemplates_Name");
 
                     b.HasIndex("OwnerUserId");
 

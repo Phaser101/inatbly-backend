@@ -13,6 +13,10 @@ internal sealed class ProcessTemplateConfiguration
         builder.HasKey(template => template.Id);
         builder.Property(template => template.Id).HasColumnName("ptrg");
         builder.Property(template => template.Name).HasMaxLength(200).IsRequired();
+        builder
+            .HasIndex(template => template.Name)
+            .IsUnique()
+            .HasDatabaseName("UX_ProcessTemplates_Name");
         builder.Property(template => template.Description).HasMaxLength(2000);
         builder.Property(template => template.Status).HasConversion<string>();
 

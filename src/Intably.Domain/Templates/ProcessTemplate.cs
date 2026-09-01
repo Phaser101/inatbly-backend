@@ -57,6 +57,7 @@ public sealed class ProcessTemplate : Entity
     public TemplateVersion SaveDraft(
         string name,
         string description,
+        bool requireSequentialSteps,
         DateTimeOffset updatedAtUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -76,6 +77,7 @@ public sealed class ProcessTemplate : Entity
             PublishedVersion + 1,
             Name,
             Description,
+            requireSequentialSteps,
             updatedAtUtc);
         _versions.Add(draft);
         return draft;

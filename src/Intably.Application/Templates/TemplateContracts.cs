@@ -16,6 +16,7 @@ public sealed record TemplateDetails(
     Guid Ptrg,
     string Name,
     string Description,
+    bool RequireSequentialSteps,
     int Version,
     string Status,
     bool HasPublishedOnce,

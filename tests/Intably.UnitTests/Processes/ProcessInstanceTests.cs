@@ -64,6 +64,71 @@ public sealed class ProcessInstanceTests
             auditEvent => auditEvent.Action == "Process closed");
     }
 
+    [Fact]
+    public void SetStepStatus_WithSequentialSteps_RequiresEarlierCompletion()
+    {
+        var process = CreateSequentialProcess();
+        var steps = process.Steps.OrderBy(step => step.Order).ToArray();
+
+        var blocked = () => process.SetStepStatus(
+            steps[1].Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        Assert.Throws<InvalidOperationException>(blocked);
+
+        process.SetStepStatus(
+            steps[0].Id,
+            ProcessStepStatus.Complete,
+            Guid.NewGuid(),
+            "Process User",
+            "Done",
+            Now);
+        process.SetStepStatus(
+            steps[1].Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        Assert.Equal(ProcessStepStatus.InProgress, steps[1].Status);
+    }
+
+    [Fact]
+    public void Reopen_WithSequentialSteps_RejectsStartedLaterStep()
+    {
+        var process = CreateSequentialProcess();
+        var steps = process.Steps.OrderBy(step => step.Order).ToArray();
+        process.SetStepStatus(
+            steps[0].Id,
+            ProcessStepStatus.Complete,
+            Guid.NewGuid(),
+            "Process User",
+            "Done",
+            Now);
+        process.SetStepStatus(
+            steps[1].Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        var reopen = () => process.SetStepStatus(
+            steps[0].Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        Assert.Throws<InvalidOperationException>(reopen);
+    }
+
     private static ProcessInstance CreateProcessWithStep()
     {
         var process = ProcessInstance.Create(
@@ -87,6 +152,46 @@ public sealed class ProcessInstanceTests
             null,
             dueAtUtc: null,
             noteRequired: true);
+
+        return process;
+    }
+
+    private static ProcessInstance CreateSequentialProcess()
+    {
+        var process = ProcessInstance.Create(
+            Guid.NewGuid(),
+            1,
+            "Sequential process",
+            "Release 1.0",
+            Guid.NewGuid(),
+            "Process Owner",
+            Now,
+            requireSequentialSteps: true);
+
+        process.AddStep(
+            Guid.NewGuid(),
+            1,
+            "First step",
+            null,
+            "Any active user",
+            "",
+            null,
+            null,
+            null,
+            dueAtUtc: null,
+            noteRequired: false);
+        process.AddStep(
+            Guid.NewGuid(),
+            2,
+            "Second step",
+            null,
+            "Any active user",
+            "",
+            null,
+            null,
+            null,
+            dueAtUtc: null,
+            noteRequired: false);
 
         return process;
     }

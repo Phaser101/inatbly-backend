@@ -19,7 +19,8 @@ public sealed class ProcessInstance : Entity
         string name,
         Guid ownerUserId,
         string ownerDisplayName,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        bool requireSequentialSteps)
     {
         TemplateId = templateId;
         TemplateVersion = templateVersion;
@@ -28,6 +29,7 @@ public sealed class ProcessInstance : Entity
         OwnerUserId = ownerUserId;
         OwnerDisplayName = ownerDisplayName;
         CreatedAtUtc = createdAtUtc;
+        RequireSequentialSteps = requireSequentialSteps;
     }
 
     public Guid TemplateId { get; private set; }
@@ -47,6 +49,8 @@ public sealed class ProcessInstance : Entity
     public string Context { get; private set; } = string.Empty;
 
     public DateTimeOffset CreatedAtUtc { get; private set; }
+
+    public bool RequireSequentialSteps { get; private set; }
 
     public DateTimeOffset? ClosedAtUtc { get; private set; }
 
@@ -71,7 +75,8 @@ public sealed class ProcessInstance : Entity
         string name,
         Guid ownerUserId,
         string ownerDisplayName,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc,
+        bool requireSequentialSteps = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(templateName);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -84,7 +89,8 @@ public sealed class ProcessInstance : Entity
             name.Trim(),
             ownerUserId,
             ownerDisplayName.Trim(),
-            createdAtUtc);
+            createdAtUtc,
+            requireSequentialSteps);
 
         process._auditEvents.Add(
             ProcessAuditEvent.Create(
@@ -206,6 +212,7 @@ public sealed class ProcessInstance : Entity
         var step = GetStep(stepId);
         var previousStatus = step.Status;
 
+        EnsureSequentialTransition(step, status);
         step.SetStatus(
             status,
             actorUserId,
@@ -225,6 +232,26 @@ public sealed class ProcessInstance : Entity
                 note?.Trim());
         _auditEvents.Add(auditEvent);
         return auditEvent;
+    }
+
+    public bool CanUpdateStep(Guid stepId)
+    {
+        var step = GetStep(stepId);
+        if (!RequireSequentialSteps)
+        {
+            return true;
+        }
+
+        return step.Status switch
+        {
+            ProcessStepStatus.NotStarted => _steps
+                .Where(candidate => candidate.Order < step.Order)
+                .All(candidate => candidate.Status == ProcessStepStatus.Complete),
+            ProcessStepStatus.Complete => _steps
+                .Where(candidate => candidate.Order > step.Order)
+                .All(candidate => candidate.Status == ProcessStepStatus.NotStarted),
+            _ => true,
+        };
     }
 
     public ProcessAuditEvent Close(
@@ -268,6 +295,40 @@ public sealed class ProcessInstance : Entity
         {
             throw new InvalidOperationException(
                 "A closed process cannot be changed.");
+        }
+    }
+
+    private void EnsureSequentialTransition(
+        ProcessStep step,
+        ProcessStepStatus nextStatus)
+    {
+        if (!RequireSequentialSteps || step.Status == nextStatus)
+        {
+            return;
+        }
+
+        if (step.Status == ProcessStepStatus.NotStarted
+            && nextStatus is (ProcessStepStatus.InProgress
+                or ProcessStepStatus.Blocked
+                or ProcessStepStatus.Complete)
+            && _steps.Any(
+                candidate =>
+                    candidate.Order < step.Order
+                    && candidate.Status != ProcessStepStatus.Complete))
+        {
+            throw new InvalidOperationException(
+                "Earlier steps must be completed before this step can be updated.");
+        }
+
+        if (step.Status == ProcessStepStatus.Complete
+            && nextStatus == ProcessStepStatus.InProgress
+            && _steps.Any(
+                candidate =>
+                    candidate.Order > step.Order
+                    && candidate.Status != ProcessStepStatus.NotStarted))
+        {
+            throw new InvalidOperationException(
+                "Later steps must be not started before this step can be reopened.");
         }
     }
 

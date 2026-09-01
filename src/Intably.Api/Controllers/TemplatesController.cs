@@ -60,6 +60,10 @@ public sealed class TemplatesController(
                 cancellationToken);
             return CreatedAtRoute("IN_003", new { ptrg = template.Ptrg }, template);
         }
+        catch (TemplateNameConflictException exception)
+        {
+            return NameConflict(exception.Message);
+        }
         catch (ArgumentException exception)
         {
             return InvalidRequest(exception.Message);
@@ -80,6 +84,10 @@ public sealed class TemplatesController(
                 request,
                 cancellationToken);
             return template is null ? NotFound() : Ok(template);
+        }
+        catch (TemplateNameConflictException exception)
+        {
+            return NameConflict(exception.Message);
         }
         catch (ArgumentException exception)
         {
@@ -118,13 +126,20 @@ public sealed class TemplatesController(
             return Forbid();
         }
 
-        var template = await templateService.DuplicateAsync(
-            ptrg,
-            currentUser.Grg,
-            cancellationToken);
-        return template is null
-            ? NotFound()
-            : CreatedAtRoute("IN_003", new { ptrg = template.Ptrg }, template);
+        try
+        {
+            var template = await templateService.DuplicateAsync(
+                ptrg,
+                currentUser.Grg,
+                cancellationToken);
+            return template is null
+                ? NotFound()
+                : CreatedAtRoute("IN_003", new { ptrg = template.Ptrg }, template);
+        }
+        catch (TemplateNameConflictException exception)
+        {
+            return NameConflict(exception.Message);
+        }
     }
 
     [HttpDelete("{ptrg:guid}", Name = "IN_009")]
@@ -160,6 +175,16 @@ public sealed class TemplatesController(
             Title = "The template request is invalid.",
             Detail = detail,
             Status = StatusCodes.Status400BadRequest,
+        });
+    }
+
+    private ConflictObjectResult NameConflict(string detail)
+    {
+        return Conflict(new ProblemDetails
+        {
+            Title = "The template name is already in use.",
+            Detail = detail,
+            Status = StatusCodes.Status409Conflict,
         });
     }
 }

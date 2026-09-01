@@ -26,6 +26,7 @@ public sealed record ProcessDetails(
     string Name,
     string TemplateName,
     int TemplateVersion,
+    bool RequireSequentialSteps,
     string Status,
     string Context,
     Guid OwnerGrg,
@@ -65,6 +66,7 @@ public sealed record ProcessStepDetails(
     DateTimeOffset? CompletedAtUtc,
     string ExecutionNote,
     string BlockedReason,
+    bool IsAvailable,
     string RowVersion);
 
 public sealed record EligibleAssignee(

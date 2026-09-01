@@ -35,6 +35,15 @@ internal sealed class MyWorkService(
                     process.Status == ProcessStatus.Open
                     && step.Status != ProcessStepStatus.Complete
                     && (
+                        !process.RequireSequentialSteps
+                        || step.Status != ProcessStepStatus.NotStarted
+                        || !dbContext.ProcessSteps.Any(
+                            prior =>
+                                prior.ProcessId == process.Id
+                                && prior.Order < step.Order
+                                && prior.Status != ProcessStepStatus.Complete)
+                    )
+                    && (
                         step.AssigneeUserId == currentUserId
                         || (!step.AssigneeUserId.HasValue && eligible)
                     )

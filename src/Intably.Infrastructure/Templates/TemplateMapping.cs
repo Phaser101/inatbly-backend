@@ -15,6 +15,7 @@ internal sealed partial class TemplateService
             template.Id,
             version.Name,
             version.Description,
+            version.RequireSequentialSteps,
             version.Version,
             template.Status.ToString(),
             template.PublishedVersion > 0,

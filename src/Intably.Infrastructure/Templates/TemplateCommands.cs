@@ -10,16 +10,24 @@ internal sealed partial class TemplateService
         Guid ownerGrg,
         CancellationToken cancellationToken)
     {
+        await EnsureNameAvailableAsync(
+            request.Name,
+            excludedPtrg: null,
+            cancellationToken);
         var template = ProcessTemplate.Create(
             request.Name,
             request.Description,
             ownerGrg,
             UtcNow);
-        var draft = template.SaveDraft(request.Name, request.Description, UtcNow);
+        var draft = template.SaveDraft(
+            request.Name,
+            request.Description,
+            request.RequireSequentialSteps,
+            UtcNow);
         PopulateVersion(draft, request);
 
         dbContext.ProcessTemplates.Add(template);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveNameChangeAsync(request.Name, cancellationToken);
         return await ToDetailsAsync(template, cancellationToken);
     }
 
@@ -34,9 +42,14 @@ internal sealed partial class TemplateService
             return null;
         }
 
+        await EnsureNameAvailableAsync(request.Name, ptrg, cancellationToken);
         var existingDraft = template.Versions.SingleOrDefault(
             version => !version.IsPublished);
-        var draft = template.SaveDraft(request.Name, request.Description, UtcNow);
+        var draft = template.SaveDraft(
+            request.Name,
+            request.Description,
+            request.RequireSequentialSteps,
+            UtcNow);
         PopulateVersion(draft, request);
         dbContext.TemplateVersions.Add(draft);
 
@@ -45,7 +58,7 @@ internal sealed partial class TemplateService
             dbContext.TemplateVersions.Remove(existingDraft);
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveNameChangeAsync(request.Name, cancellationToken);
         return await ToDetailsAsync(template, cancellationToken);
     }
 
@@ -81,19 +94,25 @@ internal sealed partial class TemplateService
 
         var sourceVersion = GetCurrentVersion(source);
         var request = CopyAsRequest(sourceVersion);
+        var duplicateName = $"{sourceVersion.Name} (copy)";
+        await EnsureNameAvailableAsync(
+            duplicateName,
+            excludedPtrg: null,
+            cancellationToken);
         var duplicate = ProcessTemplate.Create(
-            $"{sourceVersion.Name} (copy)",
+            duplicateName,
             sourceVersion.Description,
             ownerGrg,
             UtcNow);
         var draft = duplicate.SaveDraft(
             duplicate.Name,
             duplicate.Description,
+            request.RequireSequentialSteps,
             UtcNow);
         PopulateVersion(draft, request with { Name = duplicate.Name });
 
         dbContext.ProcessTemplates.Add(duplicate);
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await SaveNameChangeAsync(duplicateName, cancellationToken);
         return await ToDetailsAsync(duplicate, cancellationToken);
     }
 
@@ -142,6 +161,7 @@ internal sealed partial class TemplateService
                     step.DefaultAssigneeName,
                     step.DueOffsetDays,
                     step.NoteRequired))
-                .ToArray());
+                .ToArray(),
+            version.RequireSequentialSteps);
     }
 }

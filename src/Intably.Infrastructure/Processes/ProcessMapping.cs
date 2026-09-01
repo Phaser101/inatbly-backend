@@ -13,6 +13,7 @@ internal sealed partial class ProcessService
             process.Name,
             process.TemplateName,
             process.TemplateVersion,
+            process.RequireSequentialSteps,
             process.Status.ToString(),
             process.Context,
             process.OwnerUserId,
@@ -34,11 +35,13 @@ internal sealed partial class ProcessService
                 .ToArray(),
             process.Steps
                 .OrderBy(step => step.Order)
-                .Select(MapStep)
+                .Select(step => MapStep(process, step))
                 .ToArray());
     }
 
-    private static ProcessStepDetails MapStep(ProcessStep step)
+    private static ProcessStepDetails MapStep(
+        ProcessInstance process,
+        ProcessStep step)
     {
         return new ProcessStepDetails(
             step.Id,
@@ -59,6 +62,7 @@ internal sealed partial class ProcessService
             step.CompletedAtUtc,
             step.ExecutionNote,
             step.BlockedReason,
+            process.CanUpdateStep(step.Id),
             Convert.ToBase64String(step.RowVersion));
     }
 }

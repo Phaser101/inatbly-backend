@@ -97,13 +97,22 @@ public sealed class TemplateEndpointTests
 
         var createResponse = await client.PostAsJsonAsync(
             "/api/templates",
-            CreateRequest("Release readiness"));
+            CreateRequest("Release readiness") with
+            {
+                RequireSequentialSteps = true,
+            });
         var created =
             await createResponse.Content.ReadFromJsonAsync<TemplateDetails>();
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.NotNull(created);
         Assert.Equal("Draft", created.Status);
+        Assert.True(created.RequireSequentialSteps);
+
+        var duplicateNameResponse = await client.PostAsJsonAsync(
+            "/api/templates",
+            CreateRequest("release readiness"));
+        Assert.Equal(HttpStatusCode.Conflict, duplicateNameResponse.StatusCode);
         Assert.Equal(1, created.Version);
         Assert.Single(created.RequestFields);
         Assert.Single(created.Steps);
@@ -122,7 +131,10 @@ public sealed class TemplateEndpointTests
 
         var updateResponse = await client.PutAsJsonAsync(
             $"/api/templates/{created.Ptrg}",
-            CreateRequest("Release readiness v2"));
+            CreateRequest("Release readiness v2") with
+            {
+                RequireSequentialSteps = true,
+            });
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         var updated =
             await updateResponse.Content.ReadFromJsonAsync<TemplateDetails>();
@@ -157,6 +169,12 @@ public sealed class TemplateEndpointTests
         Assert.NotNull(duplicate);
         Assert.Equal("Release readiness v2 (copy)", duplicate.Name);
         Assert.Equal("Draft", duplicate.Status);
+        Assert.True(duplicate.RequireSequentialSteps);
+
+        var secondDuplicateResponse = await client.PostAsync(
+            $"/api/templates/{created.Ptrg}/duplicate",
+            null);
+        Assert.Equal(HttpStatusCode.Conflict, secondDuplicateResponse.StatusCode);
 
         var deleteResponse = await client.DeleteAsync(
             $"/api/templates/{created.Ptrg}");

@@ -16,12 +16,14 @@ public sealed class TemplateVersion : Entity
         int version,
         string name,
         string description,
+        bool requireSequentialSteps,
         DateTimeOffset createdAtUtc)
     {
         TemplateId = templateId;
         Version = version;
         Name = name;
         Description = description;
+        RequireSequentialSteps = requireSequentialSteps;
         CreatedAtUtc = createdAtUtc;
     }
 
@@ -32,6 +34,8 @@ public sealed class TemplateVersion : Entity
     public string Name { get; private set; } = string.Empty;
 
     public string Description { get; private set; } = string.Empty;
+
+    public bool RequireSequentialSteps { get; private set; }
 
     public bool IsPublished { get; private set; }
 
@@ -48,6 +52,7 @@ public sealed class TemplateVersion : Entity
         int version,
         string name,
         string description,
+        bool requireSequentialSteps,
         DateTimeOffset createdAtUtc)
     {
         return new TemplateVersion(
@@ -55,6 +60,7 @@ public sealed class TemplateVersion : Entity
             version,
             name,
             description,
+            requireSequentialSteps,
             createdAtUtc);
     }
 

@@ -1,6 +1,7 @@
 using Intably.Application.Templates;
 using Intably.Domain.Templates;
 using Intably.Infrastructure.Persistence;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace Intably.Infrastructure.Templates;
@@ -9,6 +10,8 @@ internal sealed partial class TemplateService(
     IntablyDbContext dbContext,
     TimeProvider timeProvider) : ITemplateService
 {
+    private const string TemplateNameIndex = "UX_ProcessTemplates_Name";
+
     private Task<ProcessTemplate?> LoadTemplateAsync(
         Guid ptrg,
         CancellationToken cancellationToken)
@@ -26,6 +29,44 @@ internal sealed partial class TemplateService(
     }
 
     private DateTimeOffset UtcNow => timeProvider.GetUtcNow();
+
+    private async Task EnsureNameAvailableAsync(
+        string name,
+        Guid? excludedPtrg,
+        CancellationToken cancellationToken)
+    {
+        var normalizedName = name.Trim();
+        var exists = await dbContext.ProcessTemplates.AnyAsync(
+            template =>
+                template.Id != excludedPtrg
+                && template.Name == normalizedName,
+            cancellationToken);
+        if (exists)
+        {
+            throw new TemplateNameConflictException(normalizedName);
+        }
+    }
+
+    private async Task SaveNameChangeAsync(
+        string name,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception)
+            when (exception.InnerException is SqlException sqlException
+                && sqlException.Errors.Cast<SqlError>().Any(
+                    error =>
+                        error.Number is 2601 or 2627
+                        && error.Message.Contains(
+                            TemplateNameIndex,
+                            StringComparison.Ordinal)))
+        {
+            throw new TemplateNameConflictException(name);
+        }
+    }
 
     private static TemplateVersion GetCurrentVersion(ProcessTemplate template)
     {

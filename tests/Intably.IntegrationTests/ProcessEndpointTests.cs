@@ -230,6 +230,82 @@ public sealed class ProcessEndpointTests
     }
 
     [Fact]
+    public async Task SequentialProcess_RejectsLaterStepUntilEarlierStepCompletes()
+    {
+        await using var factory = new IntablyApiFactory();
+        await factory.MigrateDatabaseAsync();
+        using var client = factory.CreateAuthenticatedClient();
+        await GrantTemplatePermissionsAsync(
+            factory,
+            client,
+            "integration-test-user");
+        await factory.GrantPermissionAsync(
+            client,
+            "integration-test-user",
+            ApplicationPermission.StartProcesses);
+
+        var templateResponse = await client.PostAsJsonAsync(
+            "/api/templates",
+            new SaveTemplateRequest(
+                "Sequential template",
+                "Runs steps in order.",
+                [],
+                [
+                    new SaveTemplateStep(
+                        "First",
+                        null,
+                        "",
+                        "",
+                        null,
+                        null,
+                        null,
+                        null,
+                        false),
+                    new SaveTemplateStep(
+                        "Second",
+                        null,
+                        "",
+                        "",
+                        null,
+                        null,
+                        null,
+                        null,
+                        false),
+                ],
+                RequireSequentialSteps: true));
+        var template = await templateResponse.Content
+            .ReadFromJsonAsync<TemplateDetails>();
+        await client.PostAsync($"/api/templates/{template!.Ptrg}/publish", null);
+        var startResponse = await client.PostAsJsonAsync(
+            "/api/processes",
+            new StartProcessRequest(template.Ptrg, "Sequential run", []));
+        var started = await startResponse.Content
+            .ReadFromJsonAsync<ProcessDetails>();
+        var steps = started!.Steps.OrderBy(step => step.Order).ToArray();
+
+        var blockedResponse = await client.PatchAsJsonAsync(
+            $"/api/processes/{started.Pirg}/steps/{steps[1].Psrg}/status",
+            new SetProcessStepStatusRequest(
+                "InProgress",
+                null,
+                steps[1].RowVersion));
+        Assert.Equal(HttpStatusCode.Conflict, blockedResponse.StatusCode);
+
+        var firstResponse = await client.PatchAsJsonAsync(
+            $"/api/processes/{started.Pirg}/steps/{steps[0].Psrg}/status",
+            new SetProcessStepStatusRequest(
+                "Complete",
+                null,
+                steps[0].RowVersion));
+        var afterFirst = await firstResponse.Content
+            .ReadFromJsonAsync<ProcessDetails>();
+
+        Assert.True(started.RequireSequentialSteps);
+        Assert.False(steps[1].IsAvailable);
+        Assert.True(afterFirst!.Steps.Single(step => step.Order == 2).IsAvailable);
+    }
+
+    [Fact]
     public async Task DetailedProcessPermissions_AllowReadsAndStart()
     {
         await using var factory = new IntablyApiFactory();
