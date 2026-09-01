@@ -41,7 +41,7 @@ public sealed class TemplatesController(
     }
 
     [HttpPost(Name = "IN_005")]
-    [Authorize(Policy = AuthorizationPolicies.ManageTemplates)]
+    [Authorize(Policy = AuthorizationPolicies.CreateTemplates)]
     public async Task<ActionResult<TemplateDetails>> Create(
         SaveTemplateRequest request,
         CancellationToken cancellationToken)
@@ -67,7 +67,7 @@ public sealed class TemplatesController(
     }
 
     [HttpPut("{ptrg:guid}", Name = "IN_006")]
-    [Authorize(Policy = AuthorizationPolicies.ManageTemplates)]
+    [Authorize(Policy = AuthorizationPolicies.EditTemplates)]
     public async Task<ActionResult<TemplateDetails>> Update(
         Guid ptrg,
         SaveTemplateRequest request,
@@ -88,7 +88,7 @@ public sealed class TemplatesController(
     }
 
     [HttpPost("{ptrg:guid}/publish", Name = "IN_007")]
-    [Authorize(Policy = AuthorizationPolicies.ManageTemplates)]
+    [Authorize(Policy = AuthorizationPolicies.PublishTemplates)]
     public async Task<ActionResult<TemplateDetails>> Publish(
         Guid ptrg,
         CancellationToken cancellationToken)
@@ -107,7 +107,7 @@ public sealed class TemplatesController(
     }
 
     [HttpPost("{ptrg:guid}/duplicate", Name = "IN_008")]
-    [Authorize(Policy = AuthorizationPolicies.ManageTemplates)]
+    [Authorize(Policy = AuthorizationPolicies.CreateTemplates)]
     public async Task<ActionResult<TemplateDetails>> Duplicate(
         Guid ptrg,
         CancellationToken cancellationToken)
@@ -128,7 +128,7 @@ public sealed class TemplatesController(
     }
 
     [HttpDelete("{ptrg:guid}", Name = "IN_009")]
-    [Authorize(Policy = AuthorizationPolicies.ManageTemplates)]
+    [Authorize(Policy = AuthorizationPolicies.ArchiveTemplates)]
     public async Task<IActionResult> Archive(
         Guid ptrg,
         CancellationToken cancellationToken)

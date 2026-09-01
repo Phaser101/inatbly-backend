@@ -1,3 +1,4 @@
+using Intably.Application.Permissions;
 using Intably.Application.Processes;
 using Intably.Application.Users;
 using Intably.Domain.Processes;
@@ -155,7 +156,7 @@ internal sealed partial class ProcessService
 
         var process = await RequireProcessAsync(pirg, cancellationToken);
         var step = RequireStep(process, psrg);
-        if (!CanManage(actor))
+        if (!HasPermission(actor, PermissionContracts.UpdateProcessSteps))
         {
             var allowed = step.AssigneeUserId.HasValue
                 ? step.AssigneeUserId == actor.Grg
@@ -200,10 +201,11 @@ internal sealed partial class ProcessService
     {
         var process = await RequireProcessAsync(pirg, cancellationToken);
         var step = RequireStep(process, psrg);
-        if (process.OwnerUserId != actor.Grg && !CanManage(actor))
+        if (process.OwnerUserId != actor.Grg
+            && !HasPermission(actor, PermissionContracts.AssignProcessSteps))
         {
             throw new ProcessForbiddenException(
-                "Only the process owner or a process manager can assign steps.");
+                "Only the process owner or a user with assignment permission can assign steps.");
         }
 
         string? assigneeName = null;
@@ -257,10 +259,11 @@ internal sealed partial class ProcessService
         CancellationToken cancellationToken)
     {
         var process = await RequireProcessAsync(pirg, cancellationToken);
-        if (process.OwnerUserId != actor.Grg && !CanManage(actor))
+        if (process.OwnerUserId != actor.Grg
+            && !HasPermission(actor, PermissionContracts.CloseProcesses))
         {
             throw new ProcessForbiddenException(
-                "Only the process owner or a process manager can close the process.");
+                "Only the process owner or a user with close permission can close the process.");
         }
 
         EnsureRowVersion(process.RowVersion, request.RowVersion);

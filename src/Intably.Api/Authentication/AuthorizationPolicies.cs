@@ -10,11 +10,18 @@ public static class AuthorizationPolicies
     public const string ViewMyWork = PermissionContracts.ViewMyWork;
     public const string ViewProcesses = PermissionContracts.ViewProcesses;
     public const string StartProcesses = PermissionContracts.StartProcesses;
+    public const string UpdateProcessSteps = PermissionContracts.UpdateProcessSteps;
+    public const string AssignProcessSteps = PermissionContracts.AssignProcessSteps;
+    public const string CloseProcesses = PermissionContracts.CloseProcesses;
     public const string ViewTemplates = PermissionContracts.ViewTemplates;
+    public const string CreateTemplates = PermissionContracts.CreateTemplates;
+    public const string EditTemplates = PermissionContracts.EditTemplates;
+    public const string PublishTemplates = PermissionContracts.PublishTemplates;
+    public const string ArchiveTemplates = PermissionContracts.ArchiveTemplates;
     public const string ManagePermissions = PermissionContracts.ManagePermissions;
     public const string ManageRoles = PermissionContracts.ManageRoles;
-    public const string ManageTemplates = PermissionContracts.ManageTemplates;
-    public const string ManageProcesses = PermissionContracts.ManageProcesses;
+    public const string ManageMembership = PermissionContracts.ManageMembership;
+    public const string ManageUserStatus = PermissionContracts.ManageUserStatus;
 
     public static void AddTo(AuthorizationOptions options)
     {
@@ -36,8 +43,36 @@ public static class AuthorizationPolicies
             ApplicationPermission.StartProcesses);
         AddPermissionPolicy(
             options,
+            UpdateProcessSteps,
+            ApplicationPermission.UpdateProcessSteps);
+        AddPermissionPolicy(
+            options,
+            AssignProcessSteps,
+            ApplicationPermission.AssignProcessSteps);
+        AddPermissionPolicy(
+            options,
+            CloseProcesses,
+            ApplicationPermission.CloseProcesses);
+        AddPermissionPolicy(
+            options,
             ViewTemplates,
             ApplicationPermission.ViewTemplates);
+        AddPermissionPolicy(
+            options,
+            CreateTemplates,
+            ApplicationPermission.CreateTemplates);
+        AddPermissionPolicy(
+            options,
+            EditTemplates,
+            ApplicationPermission.EditTemplates);
+        AddPermissionPolicy(
+            options,
+            PublishTemplates,
+            ApplicationPermission.PublishTemplates);
+        AddPermissionPolicy(
+            options,
+            ArchiveTemplates,
+            ApplicationPermission.ArchiveTemplates);
         AddPermissionPolicy(
             options,
             ManagePermissions,
@@ -45,12 +80,12 @@ public static class AuthorizationPolicies
         AddPermissionPolicy(options, ManageRoles, ApplicationPermission.ManageRoles);
         AddPermissionPolicy(
             options,
-            ManageTemplates,
-            ApplicationPermission.ManageTemplates);
+            ManageMembership,
+            ApplicationPermission.ManageMembership);
         AddPermissionPolicy(
             options,
-            ManageProcesses,
-            ApplicationPermission.ManageProcesses);
+            ManageUserStatus,
+            ApplicationPermission.ManageUserStatus);
     }
 
     private static void AddPermissionPolicy(

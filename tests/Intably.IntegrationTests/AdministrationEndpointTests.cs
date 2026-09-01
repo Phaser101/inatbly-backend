@@ -72,6 +72,14 @@ public sealed class AdministrationEndpointTests
             factory,
             "admin",
             ApplicationPermission.ManageRoles);
+        await GrantDirectlyAsync(
+            factory,
+            "admin",
+            ApplicationPermission.ManageMembership);
+        await GrantDirectlyAsync(
+            factory,
+            "admin",
+            ApplicationPermission.ManageUserStatus);
 
         var roleResponse = await admin.PostAsJsonAsync(
             "/api/functional-roles",
@@ -121,7 +129,7 @@ public sealed class AdministrationEndpointTests
             "/api/permission-grants",
             new GrantPermissionRequest(
                 targetId,
-                PermissionContracts.ManageTemplates));
+                PermissionContracts.CreateTemplates));
         var grant = await grantResponse.Content
             .ReadFromJsonAsync<PermissionGrantDetails>();
 
@@ -138,7 +146,7 @@ public sealed class AdministrationEndpointTests
             "/api/permission-grants",
             new GrantPermissionRequest(
                 targetId,
-                PermissionContracts.ManageTemplates));
+                PermissionContracts.CreateTemplates));
         Assert.Equal(HttpStatusCode.Conflict, duplicateResponse.StatusCode);
 
         var grants = await admin.GetFromJsonAsync<PermissionGrantDetails[]>(
@@ -154,7 +162,7 @@ public sealed class AdministrationEndpointTests
                 item.Grg == targetId
                 && item.Permission == PermissionContracts.ViewTemplates);
         Assert.Contains(
-            PermissionContracts.ManageTemplates,
+            PermissionContracts.CreateTemplates,
             targetProfile!.Permissions);
         Assert.Contains(
             PermissionContracts.ViewTemplates,
@@ -178,7 +186,7 @@ public sealed class AdministrationEndpointTests
         await GrantDirectlyAsync(
             factory,
             "admin",
-            ApplicationPermission.ManageRoles);
+            ApplicationPermission.ManageUserStatus);
         var adminId = await GetUserIdAsync(factory, "admin");
 
         Guid managePermissionsGrantId;

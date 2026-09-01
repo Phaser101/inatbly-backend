@@ -1,3 +1,4 @@
+using Intably.Application.Permissions;
 using Intably.Application.Processes;
 using Intably.Application.Users;
 using Intably.Domain.Processes;
@@ -65,9 +66,11 @@ internal sealed partial class ProcessService(
         }
     }
 
-    private static bool CanManage(CurrentUserProfile actor)
+    private static bool HasPermission(
+        CurrentUserProfile actor,
+        string permission)
     {
-        return actor.Permissions.Contains("MANAGE_PROCESSES");
+        return actor.Permissions.Contains(permission);
     }
 
     private async Task<bool> IsEligibleAsync(

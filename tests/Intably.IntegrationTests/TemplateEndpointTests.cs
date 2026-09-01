@@ -13,10 +13,7 @@ public sealed class TemplateEndpointTests
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
-        await factory.GrantPermissionAsync(
-            client,
-            "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+        await GrantTemplatePermissionsAsync(factory, client);
         var request = CreateRequest("Incomplete template") with
         {
             Steps =
@@ -54,10 +51,7 @@ public sealed class TemplateEndpointTests
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
-        await factory.GrantPermissionAsync(
-            client,
-            "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+        await GrantTemplatePermissionsAsync(factory, client);
         var request = CreateRequest("Role optional template") with
         {
             Steps =
@@ -99,10 +93,7 @@ public sealed class TemplateEndpointTests
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
-        await factory.GrantPermissionAsync(
-            client,
-            "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+        await GrantTemplatePermissionsAsync(factory, client);
 
         var createResponse = await client.PostAsJsonAsync(
             "/api/templates",
@@ -174,12 +165,16 @@ public sealed class TemplateEndpointTests
 
         Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
         Assert.NotNull(templates);
-        Assert.DoesNotContain(templates, template => template.Ptrg == created.Ptrg);
+        Assert.Contains(
+            templates,
+            template =>
+                template.Ptrg == created.Ptrg
+                && template.Status == "Archived");
         Assert.Contains(templates, template => template.Ptrg == duplicate.Ptrg);
     }
 
     [Fact]
-    public async Task ReadsRequireViewTemplatesAndMutationsRequireManageTemplates()
+    public async Task ReadsRequireViewTemplatesAndCreateRequiresCreateTemplates()
     {
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
@@ -219,12 +214,31 @@ public sealed class TemplateEndpointTests
         await factory.GrantPermissionAsync(
             client,
             "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+            ApplicationPermission.CreateTemplates);
         var allowedResponse = await client.PostAsJsonAsync(
             "/api/templates",
             CreateRequest("Allowed"));
 
         Assert.Equal(HttpStatusCode.Created, allowedResponse.StatusCode);
+    }
+
+    private static async Task GrantTemplatePermissionsAsync(
+        IntablyApiFactory factory,
+        HttpClient client)
+    {
+        foreach (var permission in new[]
+                 {
+                     ApplicationPermission.CreateTemplates,
+                     ApplicationPermission.EditTemplates,
+                     ApplicationPermission.PublishTemplates,
+                     ApplicationPermission.ArchiveTemplates,
+                 })
+        {
+            await factory.GrantPermissionAsync(
+                client,
+                "integration-test-user",
+                permission);
+        }
     }
 
     private static SaveTemplateRequest CreateRequest(string name)

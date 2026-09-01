@@ -11,7 +11,6 @@ internal sealed partial class TemplateService
     {
         var templates = await dbContext.ProcessTemplates
             .AsNoTracking()
-            .Where(template => template.Status != TemplateStatus.Archived)
             .Include(template => template.Versions)
                 .ThenInclude(version => version.Steps)
             .OrderByDescending(template => template.UpdatedAtUtc)

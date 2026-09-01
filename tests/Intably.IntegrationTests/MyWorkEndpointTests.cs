@@ -59,7 +59,11 @@ public sealed class MyWorkEndpointTests
         await factory.GrantPermissionAsync(
             client,
             "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+            ApplicationPermission.CreateTemplates);
+        await factory.GrantPermissionAsync(
+            client,
+            "integration-test-user",
+            ApplicationPermission.PublishTemplates);
         await factory.GrantPermissionAsync(
             client,
             "integration-test-user",

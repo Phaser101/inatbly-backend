@@ -103,18 +103,19 @@ deployment configuration is complete. Verify each environment independently.
 
 ## Template services
 
-Template reads require `VIEW_TEMPLATES`; writes require `MANAGE_TEMPLATES`.
+Template reads require `VIEW_TEMPLATES`; mutations use action-specific
+permissions.
 Authorized lists return the complete dataset for frontend filtering:
 
 - `IN_001` — `GET /api/users/me`
 - `IN_002` — `GET /api/templates` — `VIEW_TEMPLATES`
 - `IN_003` — `GET /api/templates/{ptrg}` — `VIEW_TEMPLATES`
 - `IN_004` — `GET /api/templates/{ptrg}/published` — `VIEW_TEMPLATES`
-- `IN_005` — `POST /api/templates` — `MANAGE_TEMPLATES`
-- `IN_006` — `PUT /api/templates/{ptrg}` — `MANAGE_TEMPLATES`
-- `IN_007` — `POST /api/templates/{ptrg}/publish` — `MANAGE_TEMPLATES`
-- `IN_008` — `POST /api/templates/{ptrg}/duplicate` — `MANAGE_TEMPLATES`
-- `IN_009` — `DELETE /api/templates/{ptrg}` — `MANAGE_TEMPLATES`
+- `IN_005` — `POST /api/templates` — `CREATE_TEMPLATES`
+- `IN_006` — `PUT /api/templates/{ptrg}` — `EDIT_TEMPLATES`
+- `IN_007` — `POST /api/templates/{ptrg}/publish` — `PUBLISH_TEMPLATES`
+- `IN_008` — `POST /api/templates/{ptrg}/duplicate` — `CREATE_TEMPLATES`
+- `IN_009` — `DELETE /api/templates/{ptrg}` — `ARCHIVE_TEMPLATES`
 
 Deleting archives a template so existing process history remains valid.
 
@@ -128,36 +129,39 @@ last 14 days.
 
 ## Process services
 
-Process reads and step mutations require `VIEW_PROCESSES`. Starting a process
-requires `START_PROCESSES`. Existing owner, assignee, functional-role, and
-`MANAGE_PROCESSES` business rules still apply after the permission gate.
+Process reads require `VIEW_PROCESSES`, and starting a process requires
+`START_PROCESSES`. Assignees and eligible functional-role members can update
+their steps. Process owners can assign steps and close their processes.
+Action-specific permissions provide those capabilities across all processes.
 
 - `IN_011` — `GET /api/processes` — `VIEW_PROCESSES`
 - `IN_012` — `POST /api/processes` — `START_PROCESSES`
 - `IN_013` — `GET /api/processes/{pirg}` — `VIEW_PROCESSES`
 - `IN_014` — `PATCH /api/processes/{pirg}/steps/{psrg}/status` —
-  `VIEW_PROCESSES`
+  assignee/eligible user or `UPDATE_PROCESS_STEPS`
 - `IN_015` — `PATCH /api/processes/{pirg}/steps/{psrg}/assignment` —
-  `VIEW_PROCESSES`
+  process owner or `ASSIGN_PROCESS_STEPS`
 - `IN_016` — `GET /api/processes/{pirg}/steps/{psrg}/eligible-assignees` —
   `VIEW_PROCESSES`
-- `IN_017` — `POST /api/processes/{pirg}/close` — `VIEW_PROCESSES`
+- `IN_017` — `POST /api/processes/{pirg}/close` —
+  process owner or `CLOSE_PROCESSES`
 - `IN_018` — `GET /api/processes/{pirg}/timeline` — `VIEW_PROCESSES`
 - `IN_019` — `GET /api/processes/{pirg}/export` — `VIEW_PROCESSES`
 
 ## Application permissions
 
 Application permission contract values are `VIEW_MY_WORK`, `VIEW_PROCESSES`,
-`START_PROCESSES`, `VIEW_TEMPLATES`, `MANAGE_PERMISSIONS`, `MANAGE_ROLES`,
-`MANAGE_TEMPLATES`, and `MANAGE_PROCESSES`.
+`START_PROCESSES`, `UPDATE_PROCESS_STEPS`, `ASSIGN_PROCESS_STEPS`,
+`CLOSE_PROCESSES`, `VIEW_TEMPLATES`, `CREATE_TEMPLATES`, `EDIT_TEMPLATES`,
+`PUBLISH_TEMPLATES`, `ARCHIVE_TEMPLATES`, `MANAGE_PERMISSIONS`,
+`MANAGE_ROLES`, `MANAGE_MEMBERSHIP`, and `MANAGE_USER_STATUS`.
 
 The current-user payload returns effective permissions. Implications are
 centralized as follows:
 
-- `MANAGE_TEMPLATES` implies `VIEW_TEMPLATES`.
+- Each template action permission implies `VIEW_TEMPLATES`.
 - `START_PROCESSES` implies `VIEW_TEMPLATES` and `VIEW_PROCESSES`.
-- `MANAGE_PROCESSES` implies `START_PROCESSES`, `VIEW_PROCESSES`, and
-  `VIEW_TEMPLATES`.
+- Each process action permission implies `VIEW_PROCESSES`.
 
 Permission-grant APIs continue to return direct grants only, so implied access
 does not create or obscure audit records.
@@ -173,8 +177,8 @@ filtering.
 - `IN_024` — `POST /api/functional-roles` — `MANAGE_ROLES`
 - `IN_025` — `PUT /api/functional-roles/{frrg}` — `MANAGE_ROLES`
 - `IN_026` — `DELETE /api/functional-roles/{frrg}` — `MANAGE_ROLES`
-- `IN_027` — `PUT /api/users/{grg}/functional-roles` — `MANAGE_ROLES`
-- `IN_028` — `PATCH /api/users/{grg}/active` — `MANAGE_ROLES`
+- `IN_027` — `PUT /api/users/{grg}/functional-roles` — `MANAGE_MEMBERSHIP`
+- `IN_028` — `PATCH /api/users/{grg}/active` — `MANAGE_USER_STATUS`
 - `IN_029` — `GET /api/permission-grants` — `MANAGE_PERMISSIONS`
 - `IN_030` — `POST /api/permission-grants` — `MANAGE_PERMISSIONS`
 - `IN_031` — `DELETE /api/permission-grants/{pgrg}` —

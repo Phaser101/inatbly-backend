@@ -16,10 +16,10 @@ public sealed class ProcessEndpointTests
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
-        await factory.GrantPermissionAsync(
+        await GrantTemplatePermissionsAsync(
+            factory,
             client,
-            "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+            "integration-test-user");
         await factory.GrantPermissionAsync(
             client,
             "integration-test-user",
@@ -52,10 +52,10 @@ public sealed class ProcessEndpointTests
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
-        await factory.GrantPermissionAsync(
+        await GrantTemplatePermissionsAsync(
+            factory,
             client,
-            "integration-test-user",
-            ApplicationPermission.ManageTemplates);
+            "integration-test-user");
         await factory.GrantPermissionAsync(
             client,
             "integration-test-user",
@@ -230,16 +230,16 @@ public sealed class ProcessEndpointTests
     }
 
     [Fact]
-    public async Task ManageProcesses_ImpliedPermissionsAllowReadsAndStart()
+    public async Task DetailedProcessPermissions_AllowReadsAndStart()
     {
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var templateManager = factory.CreateAuthenticatedClient(
             "template-manager");
-        await factory.GrantPermissionAsync(
+        await GrantTemplatePermissionsAsync(
+            factory,
             templateManager,
-            "template-manager",
-            ApplicationPermission.ManageTemplates);
+            "template-manager");
         var template = await CreateTemplateAsync(templateManager);
         await templateManager.PostAsync(
             $"/api/templates/{template.Ptrg}/publish",
@@ -250,7 +250,19 @@ public sealed class ProcessEndpointTests
         await factory.GrantPermissionAsync(
             processManager,
             "process-manager",
-            ApplicationPermission.ManageProcesses);
+            ApplicationPermission.StartProcesses);
+        await factory.GrantPermissionAsync(
+            processManager,
+            "process-manager",
+            ApplicationPermission.UpdateProcessSteps);
+        await factory.GrantPermissionAsync(
+            processManager,
+            "process-manager",
+            ApplicationPermission.AssignProcessSteps);
+        await factory.GrantPermissionAsync(
+            processManager,
+            "process-manager",
+            ApplicationPermission.CloseProcesses);
 
         var profile = await processManager.GetFromJsonAsync<CurrentUserProfile>(
             "/api/users/me");
@@ -279,9 +291,38 @@ public sealed class ProcessEndpointTests
         Assert.Contains(
             PermissionContracts.ViewTemplates,
             profile.Permissions);
+        Assert.Contains(
+            PermissionContracts.UpdateProcessSteps,
+            profile.Permissions);
+        Assert.Contains(
+            PermissionContracts.AssignProcessSteps,
+            profile.Permissions);
+        Assert.Contains(
+            PermissionContracts.CloseProcesses,
+            profile.Permissions);
         Assert.Equal(HttpStatusCode.OK, templatesResponse.StatusCode);
         Assert.Equal(HttpStatusCode.Created, startResponse.StatusCode);
         Assert.Equal(HttpStatusCode.OK, detailsResponse.StatusCode);
+    }
+
+    private static async Task GrantTemplatePermissionsAsync(
+        IntablyApiFactory factory,
+        HttpClient client,
+        string externalUserId)
+    {
+        foreach (var permission in new[]
+                 {
+                     ApplicationPermission.CreateTemplates,
+                     ApplicationPermission.EditTemplates,
+                     ApplicationPermission.PublishTemplates,
+                     ApplicationPermission.ArchiveTemplates,
+                 })
+        {
+            await factory.GrantPermissionAsync(
+                client,
+                externalUserId,
+                permission);
+        }
     }
 
     private static async Task<TemplateDetails> CreateTemplateAsync(

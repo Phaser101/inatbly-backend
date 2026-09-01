@@ -21,7 +21,7 @@ public sealed class UsersController(
     }
 
     [HttpPut("{grg:guid}/functional-roles", Name = "IN_027")]
-    [Authorize(Policy = AuthorizationPolicies.ManageRoles)]
+    [Authorize(Policy = AuthorizationPolicies.ManageMembership)]
     public async Task<ActionResult<UserLookup>> ReplaceFunctionalRoles(
         Guid grg,
         ReplaceUserFunctionalRolesRequest request,
@@ -34,7 +34,7 @@ public sealed class UsersController(
     }
 
     [HttpPatch("{grg:guid}/active", Name = "IN_028")]
-    [Authorize(Policy = AuthorizationPolicies.ManageRoles)]
+    [Authorize(Policy = AuthorizationPolicies.ManageUserStatus)]
     public async Task<ActionResult<UserLookup>> SetActive(
         Guid grg,
         SetUserActiveRequest request,

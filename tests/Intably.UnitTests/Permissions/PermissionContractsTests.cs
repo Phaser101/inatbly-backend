@@ -16,18 +16,39 @@ public sealed class PermissionContractsTests
         ApplicationPermission.StartProcesses,
         PermissionContracts.StartProcesses)]
     [InlineData(
+        ApplicationPermission.UpdateProcessSteps,
+        PermissionContracts.UpdateProcessSteps)]
+    [InlineData(
+        ApplicationPermission.AssignProcessSteps,
+        PermissionContracts.AssignProcessSteps)]
+    [InlineData(
+        ApplicationPermission.CloseProcesses,
+        PermissionContracts.CloseProcesses)]
+    [InlineData(
         ApplicationPermission.ViewTemplates,
         PermissionContracts.ViewTemplates)]
+    [InlineData(
+        ApplicationPermission.CreateTemplates,
+        PermissionContracts.CreateTemplates)]
+    [InlineData(
+        ApplicationPermission.EditTemplates,
+        PermissionContracts.EditTemplates)]
+    [InlineData(
+        ApplicationPermission.PublishTemplates,
+        PermissionContracts.PublishTemplates)]
+    [InlineData(
+        ApplicationPermission.ArchiveTemplates,
+        PermissionContracts.ArchiveTemplates)]
     [InlineData(
         ApplicationPermission.ManagePermissions,
         PermissionContracts.ManagePermissions)]
     [InlineData(ApplicationPermission.ManageRoles, PermissionContracts.ManageRoles)]
     [InlineData(
-        ApplicationPermission.ManageTemplates,
-        PermissionContracts.ManageTemplates)]
+        ApplicationPermission.ManageMembership,
+        PermissionContracts.ManageMembership)]
     [InlineData(
-        ApplicationPermission.ManageProcesses,
-        PermissionContracts.ManageProcesses)]
+        ApplicationPermission.ManageUserStatus,
+        PermissionContracts.ManageUserStatus)]
     public void ToContractName_MapsPermission(
         ApplicationPermission permission,
         string expected)
@@ -46,8 +67,29 @@ public sealed class PermissionContractsTests
         PermissionContracts.StartProcesses,
         ApplicationPermission.StartProcesses)]
     [InlineData(
+        PermissionContracts.UpdateProcessSteps,
+        ApplicationPermission.UpdateProcessSteps)]
+    [InlineData(
+        PermissionContracts.AssignProcessSteps,
+        ApplicationPermission.AssignProcessSteps)]
+    [InlineData(
+        PermissionContracts.CloseProcesses,
+        ApplicationPermission.CloseProcesses)]
+    [InlineData(
         PermissionContracts.ViewTemplates,
         ApplicationPermission.ViewTemplates)]
+    [InlineData(
+        PermissionContracts.CreateTemplates,
+        ApplicationPermission.CreateTemplates)]
+    [InlineData(
+        PermissionContracts.EditTemplates,
+        ApplicationPermission.EditTemplates)]
+    [InlineData(
+        PermissionContracts.PublishTemplates,
+        ApplicationPermission.PublishTemplates)]
+    [InlineData(
+        PermissionContracts.ArchiveTemplates,
+        ApplicationPermission.ArchiveTemplates)]
     [InlineData(
         PermissionContracts.ManagePermissions,
         ApplicationPermission.ManagePermissions)]
@@ -55,11 +97,11 @@ public sealed class PermissionContractsTests
         PermissionContracts.ManageRoles,
         ApplicationPermission.ManageRoles)]
     [InlineData(
-        PermissionContracts.ManageTemplates,
-        ApplicationPermission.ManageTemplates)]
+        PermissionContracts.ManageMembership,
+        ApplicationPermission.ManageMembership)]
     [InlineData(
-        PermissionContracts.ManageProcesses,
-        ApplicationPermission.ManageProcesses)]
+        PermissionContracts.ManageUserStatus,
+        ApplicationPermission.ManageUserStatus)]
     public void TryParse_MapsContractName(
         string value,
         ApplicationPermission expected)
@@ -84,13 +126,6 @@ public sealed class PermissionContractsTests
         new()
         {
             {
-                ApplicationPermission.ManageTemplates,
-                [
-                    ApplicationPermission.ManageTemplates,
-                    ApplicationPermission.ViewTemplates,
-                ]
-            },
-            {
                 ApplicationPermission.StartProcesses,
                 [
                     ApplicationPermission.StartProcesses,
@@ -99,12 +134,10 @@ public sealed class PermissionContractsTests
                 ]
             },
             {
-                ApplicationPermission.ManageProcesses,
+                ApplicationPermission.AssignProcessSteps,
                 [
-                    ApplicationPermission.ManageProcesses,
-                    ApplicationPermission.StartProcesses,
+                    ApplicationPermission.AssignProcessSteps,
                     ApplicationPermission.ViewProcesses,
-                    ApplicationPermission.ViewTemplates,
                 ]
             },
             {
