@@ -61,6 +61,34 @@ public sealed class ProcessesController(
         }
     }
 
+    [HttpPatch("{pirg:guid}/information/{rfrg:guid}", Name = "IN_020")]
+    public async Task<ActionResult<ProcessDetails>> UpdateInformation(
+        Guid pirg,
+        Guid rfrg,
+        UpdateProcessInformationRequest request,
+        CancellationToken cancellationToken)
+    {
+        var actor = await GetCurrentUserAsync(cancellationToken);
+        if (actor is null)
+        {
+            return Forbid();
+        }
+
+        try
+        {
+            return Ok(await processService.UpdateInformationAsync(
+                pirg,
+                rfrg,
+                request,
+                actor,
+                cancellationToken));
+        }
+        catch (Exception exception) when (IsProcessException(exception))
+        {
+            return MapException(exception);
+        }
+    }
+
     [HttpPatch("{pirg:guid}/steps/{psrg:guid}/status", Name = "IN_014")]
     public async Task<ActionResult<ProcessDetails>> SetStepStatus(
         Guid pirg,

@@ -22,8 +22,8 @@ internal sealed class ProcessAuditEventConfiguration
             .Property(auditEvent => auditEvent.AffectedItem)
             .HasMaxLength(200)
             .IsRequired();
-        builder.Property(auditEvent => auditEvent.BeforeValue).HasMaxLength(2000);
-        builder.Property(auditEvent => auditEvent.AfterValue).HasMaxLength(2000);
+        builder.Property(auditEvent => auditEvent.BeforeValue).HasMaxLength(4000);
+        builder.Property(auditEvent => auditEvent.AfterValue).HasMaxLength(4000);
         builder.Property(auditEvent => auditEvent.Note).HasMaxLength(4000);
 
         builder

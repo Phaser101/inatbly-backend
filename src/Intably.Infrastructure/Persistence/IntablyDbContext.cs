@@ -21,6 +21,8 @@ public sealed class IntablyDbContext(DbContextOptions<IntablyDbContext> options)
     public DbSet<ProcessRequestValue> ProcessRequestValues =>
         Set<ProcessRequestValue>();
 
+    public DbSet<ProcessStepGroup> ProcessStepGroups => Set<ProcessStepGroup>();
+
     public DbSet<ProcessStep> ProcessSteps => Set<ProcessStep>();
 
     public DbSet<ProcessTemplate> ProcessTemplates => Set<ProcessTemplate>();
@@ -30,6 +32,8 @@ public sealed class IntablyDbContext(DbContextOptions<IntablyDbContext> options)
 
     public DbSet<TemplateRequestFieldOption> TemplateRequestFieldOptions =>
         Set<TemplateRequestFieldOption>();
+
+    public DbSet<TemplateStepGroup> TemplateStepGroups => Set<TemplateStepGroup>();
 
     public DbSet<TemplateStep> TemplateSteps => Set<TemplateStep>();
 

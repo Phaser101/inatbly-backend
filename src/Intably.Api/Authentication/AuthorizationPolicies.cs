@@ -11,6 +11,8 @@ public static class AuthorizationPolicies
     public const string ViewProcesses = PermissionContracts.ViewProcesses;
     public const string StartProcesses = PermissionContracts.StartProcesses;
     public const string UpdateProcessSteps = PermissionContracts.UpdateProcessSteps;
+    public const string UpdateProcessInformation =
+        PermissionContracts.UpdateProcessInformation;
     public const string AssignProcessSteps = PermissionContracts.AssignProcessSteps;
     public const string CloseProcesses = PermissionContracts.CloseProcesses;
     public const string ViewTemplates = PermissionContracts.ViewTemplates;
@@ -45,6 +47,10 @@ public static class AuthorizationPolicies
             options,
             UpdateProcessSteps,
             ApplicationPermission.UpdateProcessSteps);
+        AddPermissionPolicy(
+            options,
+            UpdateProcessInformation,
+            ApplicationPermission.UpdateProcessInformation);
         AddPermissionPolicy(
             options,
             AssignProcessSteps,

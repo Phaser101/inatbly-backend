@@ -9,7 +9,9 @@ public sealed class TemplateStep : Entity
     }
 
     private TemplateStep(
+        Guid id,
         Guid templateVersionId,
+        Guid templateStepGroupId,
         int order,
         string title,
         Guid? requiredRoleId,
@@ -21,7 +23,9 @@ public sealed class TemplateStep : Entity
         int? dueOffsetDays,
         bool noteRequired)
     {
+        Id = id;
         TemplateVersionId = templateVersionId;
+        TemplateStepGroupId = templateStepGroupId;
         Order = order;
         Title = title;
         RequiredRoleId = requiredRoleId;
@@ -35,6 +39,8 @@ public sealed class TemplateStep : Entity
     }
 
     public Guid TemplateVersionId { get; private set; }
+
+    public Guid TemplateStepGroupId { get; private set; }
 
     public int Order { get; private set; }
 
@@ -57,7 +63,9 @@ public sealed class TemplateStep : Entity
     public bool NoteRequired { get; private set; }
 
     internal static TemplateStep Create(
+        Guid id,
         Guid templateVersionId,
+        Guid templateStepGroupId,
         int order,
         string title,
         Guid? requiredRoleId,
@@ -70,7 +78,9 @@ public sealed class TemplateStep : Entity
         bool noteRequired)
     {
         return new TemplateStep(
+            id,
             templateVersionId,
+            templateStepGroupId,
             order,
             title.Trim(),
             requiredRoleId,

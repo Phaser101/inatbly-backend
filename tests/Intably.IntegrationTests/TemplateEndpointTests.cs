@@ -2,34 +2,47 @@ using System.Net;
 using System.Net.Http.Json;
 using Intably.Application.Templates;
 using Intably.Domain.Permissions;
+using Intably.Infrastructure.Persistence;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Intably.IntegrationTests;
 
 public sealed class TemplateEndpointTests
 {
     [Fact]
-    public async Task Draft_AllowsIncompleteStep_ButPublishRejectsIt()
+    public async Task Draft_AllowsIncompleteContent_ButPublishRejectsIt()
     {
         await using var factory = new IntablyApiFactory();
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
         await GrantTemplatePermissionsAsync(factory, client);
-        var request = CreateRequest("Incomplete template") with
-        {
-            Steps =
+        var request = new SaveTemplateRequest(
+            "Incomplete template",
+            "",
+            Enumerable.Range(1, 5)
+                .Select(_ => new SaveTemplateInformationField(
+                    "",
+                    "text",
+                    false,
+                    "",
+                    "currentUserName",
+                    "StepOutput",
+                    true,
+                    null,
+                    []))
+                .ToArray(),
             [
-                new SaveTemplateStep(
+                new SaveTemplateStepGroup(
+                    Guid.NewGuid(),
                     "",
-                    null,
                     "",
-                    "",
-                    null,
-                    null,
-                    null,
-                    null,
-                    false),
+                    1,
+                    "Parallel",
+                    []),
             ],
-        };
+            []);
 
         var createResponse = await client.PostAsJsonAsync(
             "/api/templates",
@@ -52,11 +65,15 @@ public sealed class TemplateEndpointTests
         await factory.MigrateDatabaseAsync();
         using var client = factory.CreateAuthenticatedClient();
         await GrantTemplatePermissionsAsync(factory, client);
-        var request = CreateRequest("Role optional template") with
+        var baseRequest = CreateRequest("Role optional template");
+        var request = baseRequest with
         {
             Steps =
             [
                 new SaveTemplateStep(
+                    Guid.NewGuid(),
+                    baseRequest.Groups.Single().Ptsgrg,
+                    1,
                     "Available to any active user",
                     null,
                     "",
@@ -97,25 +114,24 @@ public sealed class TemplateEndpointTests
 
         var createResponse = await client.PostAsJsonAsync(
             "/api/templates",
-            CreateRequest("Release readiness") with
-            {
-                RequireSequentialSteps = true,
-            });
+            CreateRequest("Release readiness", "Sequential"));
         var created =
             await createResponse.Content.ReadFromJsonAsync<TemplateDetails>();
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
         Assert.NotNull(created);
         Assert.Equal("Draft", created.Status);
-        Assert.True(created.RequireSequentialSteps);
+        Assert.Equal("Sequential", created.Groups.Single().ExecutionMode);
 
         var duplicateNameResponse = await client.PostAsJsonAsync(
             "/api/templates",
             CreateRequest("release readiness"));
         Assert.Equal(HttpStatusCode.Conflict, duplicateNameResponse.StatusCode);
         Assert.Equal(1, created.Version);
-        Assert.Single(created.RequestFields);
+        Assert.Single(created.InformationFields);
+        Assert.Single(created.Groups);
         Assert.Single(created.Steps);
+        Assert.Equal(created.Groups.Single().Ptsgrg, created.Steps.Single().Ptsgrg);
 
         var publishResponse = await client.PostAsync(
             $"/api/templates/{created.Ptrg}/publish",
@@ -131,10 +147,7 @@ public sealed class TemplateEndpointTests
 
         var updateResponse = await client.PutAsJsonAsync(
             $"/api/templates/{created.Ptrg}",
-            CreateRequest("Release readiness v2") with
-            {
-                RequireSequentialSteps = true,
-            });
+            CreateRequest("Release readiness v2", "Sequential"));
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         var updated =
             await updateResponse.Content.ReadFromJsonAsync<TemplateDetails>();
@@ -169,7 +182,10 @@ public sealed class TemplateEndpointTests
         Assert.NotNull(duplicate);
         Assert.Equal("Release readiness v2 (copy)", duplicate.Name);
         Assert.Equal("Draft", duplicate.Status);
-        Assert.True(duplicate.RequireSequentialSteps);
+        Assert.Equal("Sequential", duplicate.Groups.Single().ExecutionMode);
+        Assert.Equal(
+            duplicate.Groups.Single().Ptsgrg,
+            duplicate.Steps.Single().Ptsgrg);
 
         var secondDuplicateResponse = await client.PostAsync(
             $"/api/templates/{created.Ptrg}/duplicate",
@@ -189,6 +205,195 @@ public sealed class TemplateEndpointTests
                 template.Ptrg == created.Ptrg
                 && template.Status == "Archived");
         Assert.Contains(templates, template => template.Ptrg == duplicate.Ptrg);
+    }
+
+    [Fact]
+    public async Task Create_RejectsCyclicGroupPrerequisites()
+    {
+        await using var factory = new IntablyApiFactory();
+        await factory.MigrateDatabaseAsync();
+        using var client = factory.CreateAuthenticatedClient();
+        await GrantTemplatePermissionsAsync(factory, client);
+        var firstGroupId = Guid.NewGuid();
+        var secondGroupId = Guid.NewGuid();
+        var request = new SaveTemplateRequest(
+            "Cyclic groups",
+            "",
+            [],
+            [
+                new SaveTemplateStepGroup(
+                    firstGroupId,
+                    "First",
+                    "",
+                    1,
+                    "Parallel",
+                    [secondGroupId]),
+                new SaveTemplateStepGroup(
+                    secondGroupId,
+                    "Second",
+                    "",
+                    2,
+                    "Parallel",
+                    [firstGroupId]),
+            ],
+            [
+                CreateStep(firstGroupId, 1, "First step"),
+                CreateStep(secondGroupId, 1, "Second step"),
+            ]);
+
+        var response = await client.PostAsJsonAsync("/api/templates", request);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Create_RejectsUndefinedNumericEnumValues()
+    {
+        await using var factory = new IntablyApiFactory();
+        await factory.MigrateDatabaseAsync();
+        using var client = factory.CreateAuthenticatedClient();
+        await GrantTemplatePermissionsAsync(factory, client);
+        var executionRequest = CreateRequest("Invalid execution");
+        var invalidExecutionMode = executionRequest with
+        {
+            Groups =
+            [
+                executionRequest.Groups.Single() with
+                {
+                    ExecutionMode = "999",
+                },
+            ],
+        };
+        var invalidType = WithInformationEnum(
+            CreateRequest("Invalid type"),
+            type: "999");
+        var invalidSource = WithInformationEnum(
+            CreateRequest("Invalid source"),
+            source: "999");
+        var invalidKind = WithInformationEnum(
+            CreateRequest("Invalid kind"),
+            kind: "999");
+
+        var responses = new[]
+        {
+            await client.PostAsJsonAsync("/api/templates", invalidExecutionMode),
+            await client.PostAsJsonAsync("/api/templates", invalidType),
+            await client.PostAsJsonAsync("/api/templates", invalidSource),
+            await client.PostAsJsonAsync("/api/templates", invalidKind),
+        };
+
+        Assert.All(
+            responses,
+            response => Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode));
+    }
+
+    [Fact]
+    public async Task Create_RoundTripsGroupsAndPrerequisites()
+    {
+        await using var factory = new IntablyApiFactory();
+        await factory.MigrateDatabaseAsync();
+        using var client = factory.CreateAuthenticatedClient();
+        await GrantTemplatePermissionsAsync(factory, client);
+        var preparationId = Guid.NewGuid();
+        var executionId = Guid.NewGuid();
+        var executionStepId = Guid.NewGuid();
+        var request = new SaveTemplateRequest(
+            "Grouped template",
+            "",
+            [
+                new SaveTemplateInformationField(
+                    "Requester",
+                    "email",
+                    true,
+                    "",
+                    "currentUserEmail",
+                    "LaunchInput",
+                    true,
+                    null,
+                    []),
+                new SaveTemplateInformationField(
+                    "Result",
+                    "select",
+                    true,
+                    "",
+                    "manual",
+                    "StepOutput",
+                    true,
+                    executionStepId,
+                    ["Pass", "Fail"]),
+            ],
+            [
+                new SaveTemplateStepGroup(
+                    preparationId,
+                    "Preparation",
+                    "Prepare the work.",
+                    1,
+                    "Parallel",
+                    []),
+                new SaveTemplateStepGroup(
+                    executionId,
+                    "Execution",
+                    "Execute in order.",
+                    2,
+                    "Sequential",
+                    [preparationId]),
+            ],
+            [
+                CreateStep(preparationId, 1, "Prepare"),
+                CreateStep(executionId, 1, "Execute", executionStepId),
+            ]);
+
+        var response = await client.PostAsJsonAsync("/api/templates", request);
+        var created = await response.Content.ReadFromJsonAsync<TemplateDetails>();
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.NotNull(created);
+        var preparation = created.Groups.Single(group => group.Order == 1);
+        var execution = created.Groups.Single(group => group.Order == 2);
+        Assert.Equal("Sequential", execution.ExecutionMode);
+        Assert.Equal([preparation.Ptsgrg], execution.PrerequisitePtsgrgs);
+        var executionStep = created.Steps.Single(step => step.Title == "Execute");
+        var output = created.InformationFields.Single(field =>
+            field.Kind == "StepOutput");
+        Assert.Equal(executionStep.Ptsrg, output.ProducingPtsrg);
+        Assert.All(
+            created.Steps,
+            step => Assert.Contains(
+                created.Groups,
+                group => group.Ptsgrg == step.Ptsgrg));
+    }
+
+    [Fact]
+    public async Task Persistence_RejectsCrossVersionGroupAndProducerReferences()
+    {
+        await using var factory = new IntablyApiFactory();
+        await factory.MigrateDatabaseAsync();
+        using var client = factory.CreateAuthenticatedClient();
+        await GrantTemplatePermissionsAsync(factory, client);
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/templates",
+            CreateOutputTemplateRequest("Constraint template"));
+        var created = await createResponse.Content.ReadFromJsonAsync<TemplateDetails>();
+        var publishResponse = await client.PostAsync(
+            $"/api/templates/{created!.Ptrg}/publish",
+            null);
+        var published = await publishResponse.Content
+            .ReadFromJsonAsync<TemplateDetails>();
+        var updateResponse = await client.PutAsJsonAsync(
+            $"/api/templates/{created.Ptrg}",
+            CreateOutputTemplateRequest("Constraint template v2"));
+        var draft = await updateResponse.Content.ReadFromJsonAsync<TemplateDetails>();
+        Assert.NotNull(published);
+        Assert.NotNull(draft);
+
+        await using var scope = factory.Services.CreateAsyncScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IntablyDbContext>();
+        await Assert.ThrowsAsync<SqlException>(() =>
+            dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE TemplateSteps SET TemplateStepGroupId = {published.Groups.Single().Ptsgrg} WHERE ptsrg = {draft.Steps.Single().Ptsrg}"));
+        await Assert.ThrowsAsync<SqlException>(() =>
+            dbContext.Database.ExecuteSqlInterpolatedAsync(
+                $"UPDATE TemplateRequestFields SET ProducingTemplateStepId = {published.Steps.Single().Ptsrg} WHERE rfrg = {draft.InformationFields.Single().Rfrg}"));
     }
 
     [Fact]
@@ -259,22 +464,40 @@ public sealed class TemplateEndpointTests
         }
     }
 
-    private static SaveTemplateRequest CreateRequest(string name)
+    private static SaveTemplateRequest CreateRequest(
+        string name,
+        string executionMode = "Parallel")
     {
+        var groupId = Guid.NewGuid();
         return new SaveTemplateRequest(
             name,
             "Coordinates release validation.",
             [
-                new SaveTemplateRequestField(
+                new SaveTemplateInformationField(
                     "Release name",
                     "text",
                     true,
                     "Enter the release name",
                     "manual",
+                    "LaunchInput",
+                    true,
+                    null,
+                    []),
+            ],
+            [
+                new SaveTemplateStepGroup(
+                    groupId,
+                    "Release validation",
+                    "Release validation steps.",
+                    1,
+                    executionMode,
                     []),
             ],
             [
                 new SaveTemplateStep(
+                    Guid.NewGuid(),
+                    groupId,
+                    1,
                     "Validate release",
                     null,
                     "QA",
@@ -285,5 +508,78 @@ public sealed class TemplateEndpointTests
                     1,
                     true),
             ]);
+    }
+
+    private static SaveTemplateStep CreateStep(
+        Guid groupId,
+        int order,
+        string title,
+        Guid? stepId = null)
+    {
+        return new SaveTemplateStep(
+            stepId ?? Guid.NewGuid(),
+            groupId,
+            order,
+            title,
+            null,
+            "",
+            "",
+            null,
+            null,
+            null,
+            null,
+            false);
+    }
+
+    private static SaveTemplateRequest CreateOutputTemplateRequest(string name)
+    {
+        var groupId = Guid.NewGuid();
+        var stepId = Guid.NewGuid();
+        return new SaveTemplateRequest(
+            name,
+            "",
+            [
+                new SaveTemplateInformationField(
+                    "Result",
+                    "text",
+                    false,
+                    "",
+                    "manual",
+                    "StepOutput",
+                    false,
+                    stepId,
+                    []),
+            ],
+            [
+                new SaveTemplateStepGroup(
+                    groupId,
+                    "Execution",
+                    "",
+                    1,
+                    "Parallel",
+                    []),
+            ],
+            [CreateStep(groupId, 1, "Execute", stepId)]);
+    }
+
+    private static SaveTemplateRequest WithInformationEnum(
+        SaveTemplateRequest request,
+        string? type = null,
+        string? source = null,
+        string? kind = null)
+    {
+        var field = request.InformationFields.Single();
+        return request with
+        {
+            InformationFields =
+            [
+                field with
+                {
+                    Type = type ?? field.Type,
+                    Source = source ?? field.Source,
+                    Kind = kind ?? field.Kind,
+                },
+            ],
+        };
     }
 }

@@ -26,7 +26,6 @@ public sealed record ProcessDetails(
     string Name,
     string TemplateName,
     int TemplateVersion,
-    bool RequireSequentialSteps,
     string Status,
     string Context,
     Guid OwnerGrg,
@@ -37,19 +36,38 @@ public sealed record ProcessDetails(
     string? ClosedBy,
     string FinalNote,
     string RowVersion,
-    IReadOnlyCollection<ProcessRequestValueDetails> RequestValues,
+    IReadOnlyCollection<ProcessInformationValueDetails> InformationValues,
+    IReadOnlyCollection<ProcessStepGroupDetails> Groups,
     IReadOnlyCollection<ProcessStepDetails> Steps);
 
-public sealed record ProcessRequestValueDetails(
+public sealed record ProcessStepGroupDetails(
+    Guid Psgrg,
+    Guid Ptsgrg,
+    string Name,
+    string Description,
+    int Order,
+    string ExecutionMode,
+    IReadOnlyCollection<Guid> PrerequisitePsgrgs);
+
+public sealed record ProcessInformationValueDetails(
     Guid Rfrg,
     string Label,
     string Type,
     bool Required,
-    string Value);
+    string Value,
+    string Kind,
+    bool Pinned,
+    Guid? ProducingPsrg,
+    IReadOnlyCollection<string> Options,
+    Guid? ModifiedByGrg,
+    string? ModifiedBy,
+    DateTimeOffset? ModifiedAtUtc,
+    string RowVersion);
 
 public sealed record ProcessStepDetails(
     Guid Psrg,
     Guid Ptsrg,
+    Guid Psgrg,
     int Order,
     string Title,
     Guid? RequiredRoleFrrg,

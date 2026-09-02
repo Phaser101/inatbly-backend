@@ -16,6 +16,13 @@ public interface IProcessService
         Guid pirg,
         CancellationToken cancellationToken);
 
+    Task<ProcessDetails> UpdateInformationAsync(
+        Guid pirg,
+        Guid rfrg,
+        UpdateProcessInformationRequest request,
+        CurrentUserProfile actor,
+        CancellationToken cancellationToken);
+
     Task<ProcessDetails> SetStepStatusAsync(
         Guid pirg,
         Guid psrg,

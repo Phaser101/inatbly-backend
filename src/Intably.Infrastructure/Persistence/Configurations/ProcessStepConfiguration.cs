@@ -13,6 +13,11 @@ internal sealed class ProcessStepConfiguration
     {
         builder.ToTable("ProcessSteps");
         builder.HasKey(step => step.Id);
+        builder.HasAlternateKey(step => new
+        {
+            step.ProcessId,
+            step.Id,
+        });
         builder.Property(step => step.Id).HasColumnName("psrg");
         builder.Property(step => step.Title).HasMaxLength(200).IsRequired();
         builder
@@ -32,8 +37,23 @@ internal sealed class ProcessStepConfiguration
             .HasIndex(step => new { step.ProcessId, step.SourceTemplateStepId })
             .IsUnique();
         builder
-            .HasIndex(step => new { step.ProcessId, step.Order })
+            .HasIndex(step => new { step.ProcessStepGroupId, step.Order })
             .IsUnique();
+
+        builder
+            .HasOne<ProcessStepGroup>()
+            .WithMany()
+            .HasForeignKey(step => new
+            {
+                step.ProcessId,
+                step.ProcessStepGroupId,
+            })
+            .HasPrincipalKey(group => new
+            {
+                group.ProcessId,
+                group.Id,
+            })
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder
             .HasOne<FunctionalRole>()

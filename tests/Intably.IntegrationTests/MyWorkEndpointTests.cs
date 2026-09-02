@@ -97,6 +97,9 @@ public sealed class MyWorkEndpointTests
         Assert.DoesNotContain(
             initialItems,
             item => item.StepTitle == "Assigned elsewhere");
+        Assert.DoesNotContain(
+            initialItems,
+            item => item.StepTitle == "Dependent work");
 
         var assigned = Assert.Single(
             initialItems,
@@ -104,6 +107,8 @@ public sealed class MyWorkEndpointTests
         Assert.True(assigned.AssignedToCurrentUser);
         Assert.True(assigned.EligibleForCurrentUser);
         Assert.False(assigned.RecentlyCompleted);
+        Assert.Equal("Available work", assigned.GroupName);
+        Assert.Equal("Parallel", assigned.GroupExecutionMode);
 
         var roleEligible = Assert.Single(
             initialItems,
@@ -204,6 +209,8 @@ public sealed class MyWorkEndpointTests
         CurrentUserProfile currentUser,
         CurrentUserProfile otherUser)
     {
+        var groupId = Guid.NewGuid();
+        var dependentGroupId = Guid.NewGuid();
         var response = await client.PostAsJsonAsync(
             "/api/templates",
             new SaveTemplateRequest(
@@ -211,7 +218,26 @@ public sealed class MyWorkEndpointTests
                 "Covers My Work selection behavior.",
                 [],
                 [
+                    new SaveTemplateStepGroup(
+                        groupId,
+                        "Available work",
+                        "",
+                        1,
+                        "Parallel",
+                        []),
+                    new SaveTemplateStepGroup(
+                        dependentGroupId,
+                        "Dependent work",
+                        "",
+                        2,
+                        "Sequential",
+                        [groupId]),
+                ],
+                [
                     new SaveTemplateStep(
+                        Guid.NewGuid(),
+                        groupId,
+                        1,
                         "Assigned to me",
                         role.Id,
                         role.Name,
@@ -222,6 +248,9 @@ public sealed class MyWorkEndpointTests
                         2,
                         false),
                     new SaveTemplateStep(
+                        Guid.NewGuid(),
+                        groupId,
+                        2,
                         "Eligible role work",
                         role.Id,
                         role.Name,
@@ -232,6 +261,9 @@ public sealed class MyWorkEndpointTests
                         1,
                         false),
                     new SaveTemplateStep(
+                        Guid.NewGuid(),
+                        groupId,
+                        3,
                         "Everyone work",
                         null,
                         "Everyone",
@@ -242,6 +274,9 @@ public sealed class MyWorkEndpointTests
                         null,
                         false),
                     new SaveTemplateStep(
+                        Guid.NewGuid(),
+                        groupId,
+                        4,
                         "Assigned elsewhere",
                         role.Id,
                         role.Name,
@@ -250,6 +285,19 @@ public sealed class MyWorkEndpointTests
                         otherUser.Grg,
                         otherUser.DisplayName,
                         3,
+                        false),
+                    new SaveTemplateStep(
+                        Guid.NewGuid(),
+                        dependentGroupId,
+                        1,
+                        "Dependent work",
+                        role.Id,
+                        role.Name,
+                        "",
+                        null,
+                        null,
+                        null,
+                        null,
                         false),
                 ]));
         response.EnsureSuccessStatusCode();

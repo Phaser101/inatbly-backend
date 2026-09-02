@@ -6,6 +6,7 @@ public enum ApplicationPermission
     ViewProcesses,
     StartProcesses,
     UpdateProcessSteps,
+    UpdateProcessInformation,
     AssignProcessSteps,
     CloseProcesses,
     ViewTemplates,

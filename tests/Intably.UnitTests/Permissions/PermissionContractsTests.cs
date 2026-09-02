@@ -19,6 +19,9 @@ public sealed class PermissionContractsTests
         ApplicationPermission.UpdateProcessSteps,
         PermissionContracts.UpdateProcessSteps)]
     [InlineData(
+        ApplicationPermission.UpdateProcessInformation,
+        PermissionContracts.UpdateProcessInformation)]
+    [InlineData(
         ApplicationPermission.AssignProcessSteps,
         PermissionContracts.AssignProcessSteps)]
     [InlineData(
@@ -69,6 +72,9 @@ public sealed class PermissionContractsTests
     [InlineData(
         PermissionContracts.UpdateProcessSteps,
         ApplicationPermission.UpdateProcessSteps)]
+    [InlineData(
+        PermissionContracts.UpdateProcessInformation,
+        ApplicationPermission.UpdateProcessInformation)]
     [InlineData(
         PermissionContracts.AssignProcessSteps,
         ApplicationPermission.AssignProcessSteps)]
@@ -137,6 +143,13 @@ public sealed class PermissionContractsTests
                 ApplicationPermission.AssignProcessSteps,
                 [
                     ApplicationPermission.AssignProcessSteps,
+                    ApplicationPermission.ViewProcesses,
+                ]
+            },
+            {
+                ApplicationPermission.UpdateProcessInformation,
+                [
+                    ApplicationPermission.UpdateProcessInformation,
                     ApplicationPermission.ViewProcesses,
                 ]
             },

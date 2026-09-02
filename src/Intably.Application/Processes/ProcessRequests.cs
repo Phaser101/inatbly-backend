@@ -3,9 +3,13 @@ namespace Intably.Application.Processes;
 public sealed record StartProcessRequest(
     Guid Ptrg,
     string Name,
-    IReadOnlyCollection<StartProcessRequestValue> RequestValues);
+    IReadOnlyCollection<StartProcessInformationValue> InformationValues);
 
-public sealed record StartProcessRequestValue(Guid Rfrg, string Value);
+public sealed record StartProcessInformationValue(Guid Rfrg, string Value);
+
+public sealed record UpdateProcessInformationRequest(
+    string Value,
+    string RowVersion);
 
 public sealed record SetProcessStepStatusRequest(
     string Status,

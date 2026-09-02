@@ -16,10 +16,26 @@ internal sealed class TemplateRequestFieldConfiguration
         builder.Property(field => field.Type).HasConversion<string>();
         builder.Property(field => field.Placeholder).HasMaxLength(500);
         builder.Property(field => field.Source).HasConversion<string>();
+        builder.Property(field => field.Kind).HasConversion<string>();
 
         builder
             .HasIndex(field => new { field.TemplateVersionId, field.Order })
             .IsUnique();
+
+        builder
+            .HasOne<TemplateStep>()
+            .WithMany()
+            .HasForeignKey(field => new
+            {
+                field.TemplateVersionId,
+                field.ProducingTemplateStepId,
+            })
+            .HasPrincipalKey(step => new
+            {
+                step.TemplateVersionId,
+                step.Id,
+            })
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder
             .HasMany(field => field.Options)

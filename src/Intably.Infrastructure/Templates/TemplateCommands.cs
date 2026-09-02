@@ -22,7 +22,6 @@ internal sealed partial class TemplateService
         var draft = template.SaveDraft(
             request.Name,
             request.Description,
-            request.RequireSequentialSteps,
             UtcNow);
         PopulateVersion(draft, request);
 
@@ -48,7 +47,6 @@ internal sealed partial class TemplateService
         var draft = template.SaveDraft(
             request.Name,
             request.Description,
-            request.RequireSequentialSteps,
             UtcNow);
         PopulateVersion(draft, request);
         dbContext.TemplateVersions.Add(draft);
@@ -107,7 +105,6 @@ internal sealed partial class TemplateService
         var draft = duplicate.SaveDraft(
             duplicate.Name,
             duplicate.Description,
-            request.RequireSequentialSteps,
             UtcNow);
         PopulateVersion(draft, request with { Name = duplicate.Name });
 
@@ -138,20 +135,39 @@ internal sealed partial class TemplateService
             version.Description,
             version.RequestFields
                 .OrderBy(field => field.Order)
-                .Select(field => new SaveTemplateRequestField(
+                .Select(field => new SaveTemplateInformationField(
                     field.Label,
                     field.Type.ToString(),
                     field.IsRequired,
                     field.Placeholder,
                     field.Source.ToString(),
+                    field.Kind.ToString(),
+                    field.Pinned,
+                    field.ProducingTemplateStepId,
                     field.Options
                         .OrderBy(option => option.Order)
                         .Select(option => option.Value)
                         .ToArray()))
                 .ToArray(),
+            version.StepGroups
+                .OrderBy(group => group.Order)
+                .Select(group => new SaveTemplateStepGroup(
+                    group.Id,
+                    group.Name,
+                    group.Description,
+                    group.Order,
+                    group.ExecutionMode.ToString(),
+                    group.PrerequisiteGroups
+                        .Select(prerequisite => prerequisite.Id)
+                        .ToArray()))
+                .ToArray(),
             version.Steps
-                .OrderBy(step => step.Order)
+                .OrderBy(step => step.TemplateStepGroupId)
+                .ThenBy(step => step.Order)
                 .Select(step => new SaveTemplateStep(
+                    step.Id,
+                    step.TemplateStepGroupId,
+                    step.Order,
                     step.Title,
                     step.RequiredRoleId,
                     step.RequiredRoleName,
@@ -161,7 +177,6 @@ internal sealed partial class TemplateService
                     step.DefaultAssigneeName,
                     step.DueOffsetDays,
                     step.NoteRequired))
-                .ToArray(),
-            version.RequireSequentialSteps);
+                .ToArray());
     }
 }

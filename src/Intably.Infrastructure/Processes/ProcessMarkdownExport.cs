@@ -22,11 +22,11 @@ internal sealed partial class ProcessService
         }
 
         builder.AppendLine();
-        builder.AppendLine("## Request");
+        builder.AppendLine("## Process information");
         builder.AppendLine();
         builder.AppendLine("| Field | Value |");
         builder.AppendLine("| --- | --- |");
-        foreach (var value in process.RequestValues.OrderBy(value => value.Order))
+        foreach (var value in process.InformationValues.OrderBy(value => value.Order))
         {
             builder.Append("| ")
                 .Append(Escape(value.Label))
@@ -37,37 +37,56 @@ internal sealed partial class ProcessService
 
         builder.AppendLine();
         builder.AppendLine("## Steps");
-        foreach (var step in process.Steps.OrderBy(step => step.Order))
+        foreach (var group in process.StepGroups.OrderBy(group => group.Order))
         {
             builder.AppendLine();
             builder.Append("### ")
-                .Append(step.Order)
+                .Append(group.Order)
                 .Append(". ")
-                .AppendLine(Escape(step.Title));
-            builder.AppendLine($"- **Status:** {step.Status}");
-            builder.AppendLine($"- **Required role:** {Escape(step.RequiredRoleName)}");
-            builder.AppendLine($"- **Assignee:** {Escape(step.AssigneeDisplayName ?? "Unassigned")}");
-            if (step.DueAtUtc.HasValue)
-            {
-                builder.AppendLine($"- **Due:** {step.DueAtUtc:O}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(step.Instructions))
+                .AppendLine(Escape(group.Name));
+            builder.AppendLine($"- **Execution mode:** {group.ExecutionMode}");
+            if (!string.IsNullOrWhiteSpace(group.Description))
             {
                 builder.AppendLine();
-                builder.AppendLine(Escape(step.Instructions));
+                builder.AppendLine(Escape(group.Description));
             }
 
-            if (!string.IsNullOrWhiteSpace(step.ExecutionNote))
+            foreach (var step in process.Steps
+                         .Where(step => step.ProcessStepGroupId == group.Id)
+                         .OrderBy(step => step.Order))
             {
                 builder.AppendLine();
-                builder.AppendLine($"**Execution note:** {Escape(step.ExecutionNote)}");
-            }
+                builder.Append("#### ")
+                    .Append(group.Order)
+                    .Append('.')
+                    .Append(step.Order)
+                    .Append(". ")
+                    .AppendLine(Escape(step.Title));
+                builder.AppendLine($"- **Status:** {step.Status}");
+                builder.AppendLine($"- **Required role:** {Escape(step.RequiredRoleName)}");
+                builder.AppendLine($"- **Assignee:** {Escape(step.AssigneeDisplayName ?? "Unassigned")}");
+                if (step.DueAtUtc.HasValue)
+                {
+                    builder.AppendLine($"- **Due:** {step.DueAtUtc:O}");
+                }
 
-            if (!string.IsNullOrWhiteSpace(step.BlockedReason))
-            {
-                builder.AppendLine();
-                builder.AppendLine($"**Blocked reason:** {Escape(step.BlockedReason)}");
+                if (!string.IsNullOrWhiteSpace(step.Instructions))
+                {
+                    builder.AppendLine();
+                    builder.AppendLine(Escape(step.Instructions));
+                }
+
+                if (!string.IsNullOrWhiteSpace(step.ExecutionNote))
+                {
+                    builder.AppendLine();
+                    builder.AppendLine($"**Execution note:** {Escape(step.ExecutionNote)}");
+                }
+
+                if (!string.IsNullOrWhiteSpace(step.BlockedReason))
+                {
+                    builder.AppendLine();
+                    builder.AppendLine($"**Blocked reason:** {Escape(step.BlockedReason)}");
+                }
             }
         }
 

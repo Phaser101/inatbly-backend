@@ -15,7 +15,6 @@ internal sealed partial class TemplateService
             template.Id,
             version.Name,
             version.Description,
-            version.RequireSequentialSteps,
             version.Version,
             template.Status.ToString(),
             template.PublishedVersion > 0,
@@ -26,22 +25,39 @@ internal sealed partial class TemplateService
                 .OrderBy(field => field.Order)
                 .Select(MapRequestField)
                 .ToArray(),
+            version.StepGroups
+                .OrderBy(group => group.Order)
+                .Select(group => new TemplateStepGroupDetails(
+                    group.Id,
+                    group.Name,
+                    group.Description,
+                    group.Order,
+                    group.ExecutionMode.ToString(),
+                    group.PrerequisiteGroups
+                        .Select(prerequisite => prerequisite.Id)
+                        .ToArray()))
+                .ToArray(),
             version.Steps
-                .OrderBy(step => step.Order)
+                .OrderBy(step => version.StepGroups
+                    .Single(group => group.Id == step.TemplateStepGroupId).Order)
+                .ThenBy(step => step.Order)
                 .Select(step => MapStep(step, users, roles))
                 .ToArray());
     }
 
-    private static TemplateRequestFieldDetails MapRequestField(
+    private static TemplateInformationFieldDetails MapRequestField(
         TemplateRequestField field)
     {
-        return new TemplateRequestFieldDetails(
+        return new TemplateInformationFieldDetails(
             field.Id,
             field.Label,
             field.Type.ToString().ToLowerInvariant(),
             field.IsRequired,
             field.Placeholder,
             ToCamelCase(field.Source.ToString()),
+            field.Kind.ToString(),
+            field.Pinned,
+            field.ProducingTemplateStepId,
             field.Options
                 .OrderBy(option => option.Order)
                 .Select(option => option.Value)
@@ -55,6 +71,8 @@ internal sealed partial class TemplateService
     {
         return new TemplateStepDetails(
             step.Id,
+            step.TemplateStepGroupId,
+            step.Order,
             step.Title,
             step.RequiredRoleId,
             GetName(roles, step.RequiredRoleId) ?? step.RequiredRoleName,

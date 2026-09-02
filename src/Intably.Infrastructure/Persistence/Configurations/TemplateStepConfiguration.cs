@@ -13,6 +13,11 @@ internal sealed class TemplateStepConfiguration
     {
         builder.ToTable("TemplateSteps");
         builder.HasKey(step => step.Id);
+        builder.HasAlternateKey(step => new
+        {
+            step.TemplateVersionId,
+            step.Id,
+        });
         builder.Property(step => step.Id).HasColumnName("ptsrg");
         builder.Property(step => step.Title).HasMaxLength(200).IsRequired();
         builder.Property(step => step.RequiredRoleName).HasMaxLength(200);
@@ -21,8 +26,23 @@ internal sealed class TemplateStepConfiguration
         builder.Property(step => step.DefaultAssigneeName).HasMaxLength(200);
 
         builder
-            .HasIndex(step => new { step.TemplateVersionId, step.Order })
+            .HasIndex(step => new { step.TemplateStepGroupId, step.Order })
             .IsUnique();
+
+        builder
+            .HasOne<TemplateStepGroup>()
+            .WithMany()
+            .HasForeignKey(step => new
+            {
+                step.TemplateVersionId,
+                step.TemplateStepGroupId,
+            })
+            .HasPrincipalKey(group => new
+            {
+                group.TemplateVersionId,
+                group.Id,
+            })
+            .OnDelete(DeleteBehavior.NoAction);
 
         builder
             .HasOne<FunctionalRole>()

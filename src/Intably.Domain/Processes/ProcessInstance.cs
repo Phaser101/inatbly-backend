@@ -6,6 +6,7 @@ public sealed class ProcessInstance : Entity
 {
     private readonly List<ProcessAuditEvent> _auditEvents = [];
     private readonly List<ProcessRequestValue> _requestValues = [];
+    private readonly List<ProcessStepGroup> _stepGroups = [];
     private readonly List<ProcessStep> _steps = [];
 
     private ProcessInstance()
@@ -19,8 +20,7 @@ public sealed class ProcessInstance : Entity
         string name,
         Guid ownerUserId,
         string ownerDisplayName,
-        DateTimeOffset createdAtUtc,
-        bool requireSequentialSteps)
+        DateTimeOffset createdAtUtc)
     {
         TemplateId = templateId;
         TemplateVersion = templateVersion;
@@ -29,7 +29,6 @@ public sealed class ProcessInstance : Entity
         OwnerUserId = ownerUserId;
         OwnerDisplayName = ownerDisplayName;
         CreatedAtUtc = createdAtUtc;
-        RequireSequentialSteps = requireSequentialSteps;
     }
 
     public Guid TemplateId { get; private set; }
@@ -50,8 +49,6 @@ public sealed class ProcessInstance : Entity
 
     public DateTimeOffset CreatedAtUtc { get; private set; }
 
-    public bool RequireSequentialSteps { get; private set; }
-
     public DateTimeOffset? ClosedAtUtc { get; private set; }
 
     public Guid? ClosedByUserId { get; private set; }
@@ -64,7 +61,10 @@ public sealed class ProcessInstance : Entity
 
     public IReadOnlyCollection<ProcessAuditEvent> AuditEvents => _auditEvents;
 
-    public IReadOnlyCollection<ProcessRequestValue> RequestValues => _requestValues;
+    public IReadOnlyCollection<ProcessRequestValue> InformationValues =>
+        _requestValues;
+
+    public IReadOnlyCollection<ProcessStepGroup> StepGroups => _stepGroups;
 
     public IReadOnlyCollection<ProcessStep> Steps => _steps;
 
@@ -75,8 +75,7 @@ public sealed class ProcessInstance : Entity
         string name,
         Guid ownerUserId,
         string ownerDisplayName,
-        DateTimeOffset createdAtUtc,
-        bool requireSequentialSteps = false)
+        DateTimeOffset createdAtUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(templateName);
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
@@ -89,8 +88,7 @@ public sealed class ProcessInstance : Entity
             name.Trim(),
             ownerUserId,
             ownerDisplayName.Trim(),
-            createdAtUtc,
-            requireSequentialSteps);
+            createdAtUtc);
 
         process._auditEvents.Add(
             ProcessAuditEvent.Create(
@@ -104,8 +102,37 @@ public sealed class ProcessInstance : Entity
         return process;
     }
 
+    public ProcessStepGroup AddStepGroup(
+        Guid sourceTemplateStepGroupId,
+        string name,
+        string description,
+        int order,
+        StepGroupExecutionMode executionMode)
+    {
+        EnsureOpen();
+        var group = new ProcessStepGroup(
+            Id,
+            sourceTemplateStepGroupId,
+            name.Trim(),
+            description.Trim(),
+            order,
+            executionMode);
+        _stepGroups.Add(group);
+        return group;
+    }
+
+    public void AddStepGroupPrerequisite(
+        Guid groupId,
+        Guid prerequisiteGroupId)
+    {
+        EnsureOpen();
+        var group = GetStepGroup(groupId);
+        group.AddPrerequisite(GetStepGroup(prerequisiteGroupId));
+    }
+
     public ProcessStep AddStep(
         Guid sourceTemplateStepId,
+        Guid processStepGroupId,
         int order,
         string title,
         Guid? requiredRoleId,
@@ -123,6 +150,7 @@ public sealed class ProcessInstance : Entity
         var step = new ProcessStep(
             Id,
             sourceTemplateStepId,
+            processStepGroupId,
             order,
             title.Trim(),
             requiredRoleId,
@@ -138,13 +166,20 @@ public sealed class ProcessInstance : Entity
         return step;
     }
 
-    public void AddRequestValue(
+    public void AddInformationValue(
         Guid sourceRequestFieldId,
         string label,
         string fieldType,
         bool isRequired,
         string value,
-        int order)
+        int order,
+        ProcessInformationKind kind,
+        bool pinned,
+        Guid? producingProcessStepId,
+        IEnumerable<string> options,
+        Guid? modifiedByUserId,
+        string? modifiedByDisplayName,
+        DateTimeOffset? modifiedAtUtc)
     {
         EnsureOpen();
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
@@ -157,14 +192,16 @@ public sealed class ProcessInstance : Entity
                 fieldType,
                 isRequired,
                 value.Trim(),
-                order));
+                order,
+                kind,
+                pinned,
+                producingProcessStepId,
+                options,
+                modifiedByUserId,
+                modifiedByDisplayName,
+                modifiedAtUtc));
 
-        Context = string.Join(
-            " · ",
-            _requestValues
-                .OrderBy(item => item.Order)
-                .Take(2)
-                .Select(item => $"{item.Label}: {item.Value}"));
+        RebuildContext();
     }
 
     public ProcessAuditEvent AssignStep(
@@ -212,6 +249,17 @@ public sealed class ProcessInstance : Entity
         var step = GetStep(stepId);
         var previousStatus = step.Status;
 
+        if (status == ProcessStepStatus.Complete
+            && _requestValues.Any(value =>
+                value.Kind == ProcessInformationKind.StepOutput
+                && value.ProducingProcessStepId == step.Id
+                && value.IsRequired
+                && string.IsNullOrWhiteSpace(value.Value)))
+        {
+            throw new InvalidOperationException(
+                "Required process information must be populated before completing this step.");
+        }
+
         EnsureSequentialTransition(step, status);
         step.SetStatus(
             status,
@@ -234,22 +282,48 @@ public sealed class ProcessInstance : Entity
         return auditEvent;
     }
 
+    public ProcessAuditEvent UpdateInformationValue(
+        Guid rfrg,
+        string value,
+        Guid actorUserId,
+        string actorDisplayName,
+        DateTimeOffset occurredAtUtc)
+    {
+        EnsureOpen();
+        var information = GetInformationValue(rfrg);
+        var before = information.Value;
+        information.Update(
+            value.Trim(),
+            actorUserId,
+            actorDisplayName,
+            occurredAtUtc);
+        RebuildContext();
+        var auditEvent = ProcessAuditEvent.Create(
+            Id,
+            actorUserId,
+            actorDisplayName,
+            "Process information updated",
+            information.Label,
+            occurredAtUtc,
+            information.ProducingProcessStepId,
+            before,
+            information.Value);
+        _auditEvents.Add(auditEvent);
+        return auditEvent;
+    }
+
     public bool CanUpdateStep(Guid stepId)
     {
         var step = GetStep(stepId);
-        if (!RequireSequentialSteps)
+        if (Status == ProcessStatus.Closed)
         {
-            return true;
+            return false;
         }
 
         return step.Status switch
         {
-            ProcessStepStatus.NotStarted => _steps
-                .Where(candidate => candidate.Order < step.Order)
-                .All(candidate => candidate.Status == ProcessStepStatus.Complete),
-            ProcessStepStatus.Complete => _steps
-                .Where(candidate => candidate.Order > step.Order)
-                .All(candidate => candidate.Status == ProcessStepStatus.NotStarted),
+            ProcessStepStatus.NotStarted => CanStart(step),
+            ProcessStepStatus.Complete => CanReopen(step),
             _ => true,
         };
     }
@@ -302,7 +376,7 @@ public sealed class ProcessInstance : Entity
         ProcessStep step,
         ProcessStepStatus nextStatus)
     {
-        if (!RequireSequentialSteps || step.Status == nextStatus)
+        if (step.Status == nextStatus)
         {
             return;
         }
@@ -311,30 +385,109 @@ public sealed class ProcessInstance : Entity
             && nextStatus is (ProcessStepStatus.InProgress
                 or ProcessStepStatus.Blocked
                 or ProcessStepStatus.Complete)
-            && _steps.Any(
-                candidate =>
-                    candidate.Order < step.Order
-                    && candidate.Status != ProcessStepStatus.Complete))
+            && !CanStart(step))
         {
             throw new InvalidOperationException(
-                "Earlier steps must be completed before this step can be updated.");
+                "The step's group prerequisites and sequence must be completed before this step can be updated.");
         }
 
         if (step.Status == ProcessStepStatus.Complete
             && nextStatus == ProcessStepStatus.InProgress
-            && _steps.Any(
-                candidate =>
-                    candidate.Order > step.Order
-                    && candidate.Status != ProcessStepStatus.NotStarted))
+            && !CanReopen(step))
         {
             throw new InvalidOperationException(
-                "Later steps must be not started before this step can be reopened.");
+                "A completed step cannot be reopened after a later or dependent step has started.");
         }
+    }
+
+    private bool CanStart(ProcessStep step)
+    {
+        var group = GetStepGroup(step.ProcessStepGroupId);
+        if (group.PrerequisiteGroups.Any(prerequisite =>
+                _steps.Any(candidate =>
+                    candidate.ProcessStepGroupId == prerequisite.Id
+                    && candidate.Status != ProcessStepStatus.Complete)))
+        {
+            return false;
+        }
+
+        return group.ExecutionMode != StepGroupExecutionMode.Sequential
+            || _steps
+                .Where(candidate =>
+                    candidate.ProcessStepGroupId == group.Id
+                    && candidate.Order < step.Order)
+                .All(candidate => candidate.Status == ProcessStepStatus.Complete);
+    }
+
+    private bool CanReopen(ProcessStep step)
+    {
+        var group = GetStepGroup(step.ProcessStepGroupId);
+        if (group.ExecutionMode == StepGroupExecutionMode.Sequential
+            && _steps.Any(candidate =>
+                candidate.ProcessStepGroupId == group.Id
+                && candidate.Order > step.Order
+                && candidate.Status != ProcessStepStatus.NotStarted))
+        {
+            return false;
+        }
+
+        var dependentGroupIds = GetTransitivelyDependentGroupIds(group.Id);
+        return !_steps.Any(candidate =>
+            dependentGroupIds.Contains(candidate.ProcessStepGroupId)
+            && candidate.Status != ProcessStepStatus.NotStarted);
+    }
+
+    private HashSet<Guid> GetTransitivelyDependentGroupIds(Guid groupId)
+    {
+        var result = new HashSet<Guid>();
+        var pending = new Queue<Guid>();
+        pending.Enqueue(groupId);
+        while (pending.TryDequeue(out var prerequisiteId))
+        {
+            foreach (var dependent in _stepGroups.Where(candidate =>
+                         candidate.PrerequisiteGroups.Any(
+                             prerequisite => prerequisite.Id == prerequisiteId)))
+            {
+                if (result.Add(dependent.Id))
+                {
+                    pending.Enqueue(dependent.Id);
+                }
+            }
+        }
+
+        return result;
     }
 
     private ProcessStep GetStep(Guid stepId)
     {
         return _steps.SingleOrDefault(step => step.Id == stepId)
             ?? throw new InvalidOperationException("The process step was not found.");
+    }
+
+    private ProcessRequestValue GetInformationValue(Guid rfrg)
+    {
+        return _requestValues.SingleOrDefault(
+                value => value.SourceRequestFieldId == rfrg)
+            ?? throw new InvalidOperationException(
+                "The process information field was not found.");
+    }
+
+    private void RebuildContext()
+    {
+        var context = string.Join(
+            " · ",
+            _requestValues
+                .Where(item => item.Pinned && !string.IsNullOrWhiteSpace(item.Value))
+                .OrderBy(item => item.Order)
+                .Take(4)
+                .Select(item => $"{item.Label}: {item.Value}"));
+        Context = context.Length <= 1000 ? context : context[..1000];
+    }
+
+    private ProcessStepGroup GetStepGroup(Guid groupId)
+    {
+        return _stepGroups.SingleOrDefault(group => group.Id == groupId)
+            ?? throw new InvalidOperationException(
+                "The process step group was not found.");
     }
 }

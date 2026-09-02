@@ -1,3 +1,4 @@
+using Intably.Domain.Common;
 using Intably.Domain.Processes;
 
 namespace Intably.UnitTests.Processes;
@@ -62,6 +63,7 @@ public sealed class ProcessInstanceTests
         Assert.Contains(
             process.AuditEvents,
             auditEvent => auditEvent.Action == "Process closed");
+        Assert.False(process.CanUpdateStep(step.Id));
     }
 
     [Fact]
@@ -129,19 +131,83 @@ public sealed class ProcessInstanceTests
         Assert.Throws<InvalidOperationException>(reopen);
     }
 
+    [Fact]
+    public void PrerequisiteGroup_UnlocksOnlyAfterEveryStepCompletes()
+    {
+        var process = CreateProcess();
+        var prerequisite = process.AddStepGroup(
+            Guid.NewGuid(),
+            "Preparation",
+            "",
+            1,
+            StepGroupExecutionMode.Parallel);
+        var dependent = process.AddStepGroup(
+            Guid.NewGuid(),
+            "Execution",
+            "",
+            2,
+            StepGroupExecutionMode.Parallel);
+        process.AddStepGroupPrerequisite(dependent.Id, prerequisite.Id);
+        var first = AddStep(process, prerequisite.Id, 1, "First");
+        var second = AddStep(process, prerequisite.Id, 2, "Second");
+        var dependentStep = AddStep(process, dependent.Id, 1, "Dependent");
+
+        Assert.False(process.CanUpdateStep(dependentStep.Id));
+        Complete(process, first);
+        Assert.False(process.CanUpdateStep(dependentStep.Id));
+        Complete(process, second);
+        Assert.True(process.CanUpdateStep(dependentStep.Id));
+    }
+
+    [Fact]
+    public void Reopen_RejectsStartedTransitivelyDependentGroup()
+    {
+        var process = CreateProcess();
+        var firstGroup = process.AddStepGroup(
+            Guid.NewGuid(), "First", "", 1, StepGroupExecutionMode.Parallel);
+        var secondGroup = process.AddStepGroup(
+            Guid.NewGuid(), "Second", "", 2, StepGroupExecutionMode.Parallel);
+        var thirdGroup = process.AddStepGroup(
+            Guid.NewGuid(), "Third", "", 3, StepGroupExecutionMode.Parallel);
+        process.AddStepGroupPrerequisite(secondGroup.Id, firstGroup.Id);
+        process.AddStepGroupPrerequisite(thirdGroup.Id, secondGroup.Id);
+        var first = AddStep(process, firstGroup.Id, 1, "First");
+        var second = AddStep(process, secondGroup.Id, 1, "Second");
+        var third = AddStep(process, thirdGroup.Id, 1, "Third");
+        Complete(process, first);
+        Complete(process, second);
+        process.SetStepStatus(
+            third.Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        var reopen = () => process.SetStepStatus(
+            first.Id,
+            ProcessStepStatus.InProgress,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+
+        Assert.Throws<InvalidOperationException>(reopen);
+    }
+
     private static ProcessInstance CreateProcessWithStep()
     {
-        var process = ProcessInstance.Create(
+        var process = CreateProcess();
+        var group = process.AddStepGroup(
             Guid.NewGuid(),
+            "Default",
+            "",
             1,
-            "Release readiness",
-            "Release 1.0",
-            Guid.NewGuid(),
-            "Process Owner",
-            Now);
+            StepGroupExecutionMode.Parallel);
 
         process.AddStep(
             Guid.NewGuid(),
+            group.Id,
             1,
             "Complete QA",
             null,
@@ -156,6 +222,50 @@ public sealed class ProcessInstanceTests
         return process;
     }
 
+    private static ProcessInstance CreateProcess()
+    {
+        return ProcessInstance.Create(
+            Guid.NewGuid(),
+            1,
+            "Release readiness",
+            "Release 1.0",
+            Guid.NewGuid(),
+            "Process Owner",
+            Now);
+    }
+
+    private static ProcessStep AddStep(
+        ProcessInstance process,
+        Guid groupId,
+        int order,
+        string title)
+    {
+        return process.AddStep(
+            Guid.NewGuid(),
+            groupId,
+            order,
+            title,
+            null,
+            "Any active user",
+            "",
+            null,
+            null,
+            null,
+            dueAtUtc: null,
+            noteRequired: false);
+    }
+
+    private static void Complete(ProcessInstance process, ProcessStep step)
+    {
+        process.SetStepStatus(
+            step.Id,
+            ProcessStepStatus.Complete,
+            Guid.NewGuid(),
+            "Process User",
+            null,
+            Now);
+    }
+
     private static ProcessInstance CreateSequentialProcess()
     {
         var process = ProcessInstance.Create(
@@ -165,11 +275,17 @@ public sealed class ProcessInstanceTests
             "Release 1.0",
             Guid.NewGuid(),
             "Process Owner",
-            Now,
-            requireSequentialSteps: true);
+            Now);
+        var group = process.AddStepGroup(
+            Guid.NewGuid(),
+            "Default",
+            "",
+            1,
+            StepGroupExecutionMode.Sequential);
 
         process.AddStep(
             Guid.NewGuid(),
+            group.Id,
             1,
             "First step",
             null,
@@ -182,6 +298,7 @@ public sealed class ProcessInstanceTests
             noteRequired: false);
         process.AddStep(
             Guid.NewGuid(),
+            group.Id,
             2,
             "Second step",
             null,

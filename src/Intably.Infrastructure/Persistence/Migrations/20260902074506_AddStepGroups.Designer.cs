@@ -4,6 +4,7 @@ using Intably.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Intably.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(IntablyDbContext))]
-    partial class IntablyDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902074506_AddStepGroups")]
+    partial class AddStepGroups
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -78,12 +81,12 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("AfterValue")
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<string>("BeforeValue")
-                        .HasMaxLength(4000)
-                        .HasColumnType("nvarchar(4000)");
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
 
                     b.Property<string>("Note")
                         .HasMaxLength(4000)
@@ -198,46 +201,16 @@ namespace Intably.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsRequired")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<DateTimeOffset?>("ModifiedAtUtc")
-                        .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("ModifiedByDisplayName")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<Guid?>("ModifiedByUserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("OptionsJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
-                    b.Property<bool>("Pinned")
-                        .HasColumnType("bit");
-
                     b.Property<Guid>("ProcessId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ProducingProcessStepId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
 
                     b.Property<Guid>("SourceRequestFieldId")
                         .HasColumnType("uniqueidentifier");
@@ -249,12 +222,8 @@ namespace Intably.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ModifiedByUserId");
-
                     b.HasIndex("ProcessId", "Order")
                         .IsUnique();
-
-                    b.HasIndex("ProcessId", "ProducingProcessStepId");
 
                     b.ToTable("ProcessRequestValues", (string)null);
                 });
@@ -350,8 +319,6 @@ namespace Intably.Infrastructure.Persistence.Migrations
                     b.HasIndex("ExecutorUserId");
 
                     b.HasIndex("RequiredRoleId");
-
-                    b.HasIndex("ProcessId", "ProcessStepGroupId");
 
                     b.HasIndex("ProcessId", "SourceTemplateStepId")
                         .IsUnique();
@@ -506,10 +473,6 @@ namespace Intably.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsRequired")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Kind")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -518,16 +481,10 @@ namespace Intably.Infrastructure.Persistence.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("int");
 
-                    b.Property<bool>("Pinned")
-                        .HasColumnType("bit");
-
                     b.Property<string>("Placeholder")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
-
-                    b.Property<Guid?>("ProducingTemplateStepId")
-                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Source")
                         .IsRequired()
@@ -544,8 +501,6 @@ namespace Intably.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TemplateVersionId", "Order")
                         .IsUnique();
-
-                    b.HasIndex("TemplateVersionId", "ProducingTemplateStepId");
 
                     b.ToTable("TemplateRequestFields", (string)null);
                 });
@@ -632,10 +587,10 @@ namespace Intably.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("RequiredRoleId");
 
+                    b.HasIndex("TemplateVersionId");
+
                     b.HasIndex("TemplateStepGroupId", "Order")
                         .IsUnique();
-
-                    b.HasIndex("TemplateVersionId", "TemplateStepGroupId");
 
                     b.ToTable("TemplateSteps", (string)null);
                 });
@@ -668,6 +623,9 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TemplateVersionId", "Name")
+                        .IsUnique();
 
                     b.HasIndex("TemplateVersionId", "Order")
                         .IsUnique();
@@ -844,22 +802,11 @@ namespace Intably.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Intably.Domain.Processes.ProcessRequestValue", b =>
                 {
-                    b.HasOne("Intably.Domain.Users.User", null)
-                        .WithMany()
-                        .HasForeignKey("ModifiedByUserId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
                     b.HasOne("Intably.Domain.Processes.ProcessInstance", null)
-                        .WithMany("InformationValues")
+                        .WithMany("RequestValues")
                         .HasForeignKey("ProcessId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Intably.Domain.Processes.ProcessStep", null)
-                        .WithMany()
-                        .HasForeignKey("ProcessId", "ProducingProcessStepId")
-                        .HasPrincipalKey("ProcessId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Intably.Domain.Processes.ProcessStep", b =>
@@ -880,17 +827,16 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Intably.Domain.Processes.ProcessStepGroup", null)
+                        .WithMany()
+                        .HasForeignKey("ProcessStepGroupId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("Intably.Domain.Roles.FunctionalRole", null)
                         .WithMany()
                         .HasForeignKey("RequiredRoleId")
                         .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Intably.Domain.Processes.ProcessStepGroup", null)
-                        .WithMany()
-                        .HasForeignKey("ProcessId", "ProcessStepGroupId")
-                        .HasPrincipalKey("ProcessId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Intably.Domain.Processes.ProcessStepGroup", b =>
@@ -933,12 +879,6 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .HasForeignKey("TemplateVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.HasOne("Intably.Domain.Templates.TemplateStep", null)
-                        .WithMany()
-                        .HasForeignKey("TemplateVersionId", "ProducingTemplateStepId")
-                        .HasPrincipalKey("TemplateVersionId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("Intably.Domain.Templates.TemplateRequestFieldOption", b =>
@@ -962,17 +902,16 @@ namespace Intably.Infrastructure.Persistence.Migrations
                         .HasForeignKey("RequiredRoleId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Intably.Domain.Templates.TemplateStepGroup", null)
+                        .WithMany()
+                        .HasForeignKey("TemplateStepGroupId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
                     b.HasOne("Intably.Domain.Templates.TemplateVersion", null)
                         .WithMany("Steps")
                         .HasForeignKey("TemplateVersionId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Intably.Domain.Templates.TemplateStepGroup", null)
-                        .WithMany()
-                        .HasForeignKey("TemplateVersionId", "TemplateStepGroupId")
-                        .HasPrincipalKey("TemplateVersionId", "Id")
-                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
                 });
 
@@ -1028,7 +967,7 @@ namespace Intably.Infrastructure.Persistence.Migrations
                 {
                     b.Navigation("AuditEvents");
 
-                    b.Navigation("InformationValues");
+                    b.Navigation("RequestValues");
 
                     b.Navigation("StepGroups");
 

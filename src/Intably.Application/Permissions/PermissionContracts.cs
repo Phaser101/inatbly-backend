@@ -8,6 +8,8 @@ public static class PermissionContracts
     public const string ViewProcesses = "VIEW_PROCESSES";
     public const string StartProcesses = "START_PROCESSES";
     public const string UpdateProcessSteps = "UPDATE_PROCESS_STEPS";
+    public const string UpdateProcessInformation =
+        "UPDATE_PROCESS_INFORMATION";
     public const string AssignProcessSteps = "ASSIGN_PROCESS_STEPS";
     public const string CloseProcesses = "CLOSE_PROCESSES";
     public const string ViewTemplates = "VIEW_TEMPLATES";
@@ -28,6 +30,8 @@ public static class PermissionContracts
             ApplicationPermission.ViewProcesses => ViewProcesses,
             ApplicationPermission.StartProcesses => StartProcesses,
             ApplicationPermission.UpdateProcessSteps => UpdateProcessSteps,
+            ApplicationPermission.UpdateProcessInformation =>
+                UpdateProcessInformation,
             ApplicationPermission.AssignProcessSteps => AssignProcessSteps,
             ApplicationPermission.CloseProcesses => CloseProcesses,
             ApplicationPermission.ViewTemplates => ViewTemplates,
@@ -56,6 +60,7 @@ public static class PermissionContracts
         }
 
         if (effective.Contains(ApplicationPermission.UpdateProcessSteps)
+            || effective.Contains(ApplicationPermission.UpdateProcessInformation)
             || effective.Contains(ApplicationPermission.AssignProcessSteps)
             || effective.Contains(ApplicationPermission.CloseProcesses))
         {
@@ -83,6 +88,8 @@ public static class PermissionContracts
             ViewProcesses => ApplicationPermission.ViewProcesses,
             StartProcesses => ApplicationPermission.StartProcesses,
             UpdateProcessSteps => ApplicationPermission.UpdateProcessSteps,
+            UpdateProcessInformation =>
+                ApplicationPermission.UpdateProcessInformation,
             AssignProcessSteps => ApplicationPermission.AssignProcessSteps,
             CloseProcesses => ApplicationPermission.CloseProcesses,
             ViewTemplates => ApplicationPermission.ViewTemplates,
@@ -102,6 +109,7 @@ public static class PermissionContracts
             or ViewProcesses
             or StartProcesses
             or UpdateProcessSteps
+            or UpdateProcessInformation
             or AssignProcessSteps
             or CloseProcesses
             or ViewTemplates

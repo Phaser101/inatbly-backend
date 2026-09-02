@@ -1,5 +1,6 @@
 using Intably.Application.MyWork;
 using Intably.Application.Users;
+using Intably.Domain.Common;
 using Intably.Domain.Processes;
 using Intably.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -27,22 +28,31 @@ internal sealed class MyWorkService(
             from step in dbContext.ProcessSteps.AsNoTracking()
             join process in dbContext.Processes.AsNoTracking()
                 on step.ProcessId equals process.Id
+            join stepGroup in dbContext.ProcessStepGroups.AsNoTracking()
+                on step.ProcessStepGroupId equals stepGroup.Id
             let eligible =
                 !step.RequiredRoleId.HasValue
                 || currentUserRoleIds.Contains(step.RequiredRoleId.Value)
+            let available =
+                step.Status != ProcessStepStatus.NotStarted
+                || (
+                    stepGroup.PrerequisiteGroups.All(prerequisite =>
+                        !dbContext.ProcessSteps.Any(candidate =>
+                            candidate.ProcessStepGroupId == prerequisite.Id
+                            && candidate.Status != ProcessStepStatus.Complete))
+                    && (
+                        stepGroup.ExecutionMode != StepGroupExecutionMode.Sequential
+                        || !dbContext.ProcessSteps.Any(prior =>
+                            prior.ProcessStepGroupId == stepGroup.Id
+                            && prior.Order < step.Order
+                            && prior.Status != ProcessStepStatus.Complete)
+                    )
+                )
             where
                 (
                     process.Status == ProcessStatus.Open
                     && step.Status != ProcessStepStatus.Complete
-                    && (
-                        !process.RequireSequentialSteps
-                        || step.Status != ProcessStepStatus.NotStarted
-                        || !dbContext.ProcessSteps.Any(
-                            prior =>
-                                prior.ProcessId == process.Id
-                                && prior.Order < step.Order
-                                && prior.Status != ProcessStepStatus.Complete)
-                    )
+                    && available
                     && (
                         step.AssigneeUserId == currentUserId
                         || (!step.AssigneeUserId.HasValue && eligible)
@@ -64,6 +74,10 @@ internal sealed class MyWorkService(
                 step.Id,
                 process.Id,
                 process.Name,
+                stepGroup.Id,
+                stepGroup.Name,
+                stepGroup.Order,
+                stepGroup.ExecutionMode.ToString(),
                 step.Order,
                 step.Title,
                 step.RequiredRoleId,

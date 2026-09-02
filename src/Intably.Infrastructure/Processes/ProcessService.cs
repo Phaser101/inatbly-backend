@@ -19,7 +19,9 @@ internal sealed partial class ProcessService(
     {
         return dbContext.Processes
             .AsSplitQuery()
-            .Include(process => process.RequestValues)
+            .Include(process => process.InformationValues)
+            .Include(process => process.StepGroups)
+                .ThenInclude(group => group.PrerequisiteGroups)
             .Include(process => process.Steps)
             .Include(process => process.AuditEvents)
             .SingleOrDefaultAsync(process => process.Id == pirg, cancellationToken);
@@ -37,6 +39,32 @@ internal sealed partial class ProcessService(
     {
         return process.Steps.SingleOrDefault(step => step.Id == psrg)
             ?? throw new ProcessNotFoundException("The process step was not found.");
+    }
+
+    private async Task<bool> CanEditStepOutputAsync(
+        ProcessInstance process,
+        ProcessRequestValue information,
+        CurrentUserProfile actor,
+        CancellationToken cancellationToken)
+    {
+        var step = information.ProducingProcessStepId.HasValue
+            ? process.Steps.SingleOrDefault(
+                candidate => candidate.Id == information.ProducingProcessStepId)
+            : null;
+        if (step is null)
+        {
+            return false;
+        }
+
+        return process.CanUpdateStep(step.Id)
+            && (
+                step.AssigneeUserId.HasValue
+                    ? step.AssigneeUserId == actor.Grg
+                    : await IsEligibleAsync(
+                        actor.Grg,
+                        step.RequiredRoleId,
+                        cancellationToken)
+            );
     }
 
     private static byte[] ParseRowVersion(string rowVersion)

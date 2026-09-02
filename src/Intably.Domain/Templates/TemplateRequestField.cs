@@ -17,7 +17,10 @@ public sealed class TemplateRequestField : Entity
         RequestFieldType type,
         bool isRequired,
         string placeholder,
-        RequestFieldSource source)
+        RequestFieldSource source,
+        ProcessInformationKind kind,
+        bool pinned,
+        Guid? producingTemplateStepId)
     {
         TemplateVersionId = templateVersionId;
         Order = order;
@@ -26,6 +29,9 @@ public sealed class TemplateRequestField : Entity
         IsRequired = isRequired;
         Placeholder = placeholder;
         Source = source;
+        Kind = kind;
+        Pinned = pinned;
+        ProducingTemplateStepId = producingTemplateStepId;
     }
 
     public Guid TemplateVersionId { get; private set; }
@@ -42,6 +48,12 @@ public sealed class TemplateRequestField : Entity
 
     public RequestFieldSource Source { get; private set; }
 
+    public ProcessInformationKind Kind { get; private set; }
+
+    public bool Pinned { get; private set; }
+
+    public Guid? ProducingTemplateStepId { get; private set; }
+
     public IReadOnlyCollection<TemplateRequestFieldOption> Options => _options;
 
     internal static TemplateRequestField Create(
@@ -52,6 +64,9 @@ public sealed class TemplateRequestField : Entity
         bool isRequired,
         string placeholder,
         RequestFieldSource source,
+        ProcessInformationKind kind,
+        bool pinned,
+        Guid? producingTemplateStepId,
         IEnumerable<string> options)
     {
         var field = new TemplateRequestField(
@@ -61,7 +76,10 @@ public sealed class TemplateRequestField : Entity
             type,
             isRequired,
             placeholder.Trim(),
-            source);
+            source,
+            kind,
+            pinned,
+            producingTemplateStepId);
 
         foreach (var (value, optionOrder) in options.Select((value, index) => (value, index)))
         {

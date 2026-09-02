@@ -147,11 +147,22 @@ Action-specific permissions provide those capabilities across all processes.
   process owner or `CLOSE_PROCESSES`
 - `IN_018` — `GET /api/processes/{pirg}/timeline` — `VIEW_PROCESSES`
 - `IN_019` — `GET /api/processes/{pirg}/export` — `VIEW_PROCESSES`
+- `IN_020` — `PATCH /api/processes/{pirg}/information/{rfrg}` —
+  process owner for launch inputs, producing-step assignee/eligible user for
+  step outputs, or `UPDATE_PROCESS_INFORMATION`
+
+The information update body is
+`{ "value": "new value", "rowVersion": "base64-rowversion" }`. Template
+contracts expose `informationFields`; process start and detail contracts expose
+`informationValues`. Information fields retain stable `rfrg` identifiers and
+identify their `LaunchInput` or `StepOutput` kind, pinning, and optional
+producing step.
 
 ## Application permissions
 
 Application permission contract values are `VIEW_MY_WORK`, `VIEW_PROCESSES`,
-`START_PROCESSES`, `UPDATE_PROCESS_STEPS`, `ASSIGN_PROCESS_STEPS`,
+`START_PROCESSES`, `UPDATE_PROCESS_STEPS`, `UPDATE_PROCESS_INFORMATION`,
+`ASSIGN_PROCESS_STEPS`,
 `CLOSE_PROCESSES`, `VIEW_TEMPLATES`, `CREATE_TEMPLATES`, `EDIT_TEMPLATES`,
 `PUBLISH_TEMPLATES`, `ARCHIVE_TEMPLATES`, `MANAGE_PERMISSIONS`,
 `MANAGE_ROLES`, `MANAGE_MEMBERSHIP`, and `MANAGE_USER_STATUS`.

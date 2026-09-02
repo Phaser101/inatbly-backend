@@ -25,6 +25,12 @@ internal sealed class TemplateVersionConfiguration
             .OnDelete(DeleteBehavior.Cascade);
 
         builder
+            .HasMany(version => version.StepGroups)
+            .WithOne()
+            .HasForeignKey(group => group.TemplateVersionId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder
             .HasMany(version => version.Steps)
             .WithOne()
             .HasForeignKey(step => step.TemplateVersionId)

@@ -11,6 +11,7 @@ public sealed class ProcessStep : Entity
     internal ProcessStep(
         Guid processId,
         Guid sourceTemplateStepId,
+        Guid processStepGroupId,
         int order,
         string title,
         Guid? requiredRoleId,
@@ -24,6 +25,7 @@ public sealed class ProcessStep : Entity
     {
         ProcessId = processId;
         SourceTemplateStepId = sourceTemplateStepId;
+        ProcessStepGroupId = processStepGroupId;
         Order = order;
         Title = title;
         RequiredRoleId = requiredRoleId;
@@ -39,6 +41,8 @@ public sealed class ProcessStep : Entity
     public Guid ProcessId { get; private set; }
 
     public Guid SourceTemplateStepId { get; private set; }
+
+    public Guid ProcessStepGroupId { get; private set; }
 
     public int Order { get; private set; }
 

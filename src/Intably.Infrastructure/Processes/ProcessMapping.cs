@@ -13,7 +13,6 @@ internal sealed partial class ProcessService
             process.Name,
             process.TemplateName,
             process.TemplateVersion,
-            process.RequireSequentialSteps,
             process.Status.ToString(),
             process.Context,
             process.OwnerUserId,
@@ -24,17 +23,40 @@ internal sealed partial class ProcessService
             process.ClosedByDisplayName,
             process.FinalNote,
             Convert.ToBase64String(process.RowVersion),
-            process.RequestValues
+            process.InformationValues
                 .OrderBy(value => value.Order)
-                .Select(value => new ProcessRequestValueDetails(
+                .Select(value => new ProcessInformationValueDetails(
                     value.SourceRequestFieldId,
                     value.Label,
                     value.FieldType,
                     value.IsRequired,
-                    value.Value))
+                    value.Value,
+                    value.Kind.ToString(),
+                    value.Pinned,
+                    value.ProducingProcessStepId,
+                    value.Options,
+                    value.ModifiedByUserId,
+                    value.ModifiedByDisplayName,
+                    value.ModifiedAtUtc,
+                    Convert.ToBase64String(value.RowVersion)))
+                .ToArray(),
+            process.StepGroups
+                .OrderBy(group => group.Order)
+                .Select(group => new ProcessStepGroupDetails(
+                    group.Id,
+                    group.SourceTemplateStepGroupId,
+                    group.Name,
+                    group.Description,
+                    group.Order,
+                    group.ExecutionMode.ToString(),
+                    group.PrerequisiteGroups
+                        .Select(prerequisite => prerequisite.Id)
+                        .ToArray()))
                 .ToArray(),
             process.Steps
-                .OrderBy(step => step.Order)
+                .OrderBy(step => process.StepGroups
+                    .Single(group => group.Id == step.ProcessStepGroupId).Order)
+                .ThenBy(step => step.Order)
                 .Select(step => MapStep(process, step))
                 .ToArray());
     }
@@ -46,6 +68,7 @@ internal sealed partial class ProcessService
         return new ProcessStepDetails(
             step.Id,
             step.SourceTemplateStepId,
+            step.ProcessStepGroupId,
             step.Order,
             step.Title,
             step.RequiredRoleId,

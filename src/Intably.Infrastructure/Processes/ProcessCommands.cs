@@ -1,6 +1,7 @@
 using Intably.Application.Permissions;
 using Intably.Application.Processes;
 using Intably.Application.Users;
+using Intably.Domain.Common;
 using Intably.Domain.Processes;
 using Intably.Domain.Templates;
 using Microsoft.EntityFrameworkCore;
@@ -32,6 +33,9 @@ internal sealed partial class ProcessService
                     .ThenInclude(field => field.Options)
             .Include(candidate => candidate.Versions)
                 .ThenInclude(version => version.Steps)
+            .Include(candidate => candidate.Versions)
+                .ThenInclude(version => version.StepGroups)
+                    .ThenInclude(group => group.PrerequisiteGroups)
             .SingleOrDefaultAsync(
                 candidate =>
                     candidate.Id == request.Ptrg
@@ -44,7 +48,7 @@ internal sealed partial class ProcessService
             && candidate.Version == template.PublishedVersion);
 
         var submittedValues = new Dictionary<Guid, string>();
-        foreach (var submitted in request.RequestValues)
+        foreach (var submitted in request.InformationValues)
         {
             if (!submittedValues.TryAdd(submitted.Rfrg, submitted.Value ?? string.Empty))
             {
@@ -53,14 +57,19 @@ internal sealed partial class ProcessService
             }
         }
 
-        var fieldIds = version.RequestFields.Select(field => field.Id).ToHashSet();
+        var launchFields = version.RequestFields
+            .Where(field => field.Kind == ProcessInformationKind.LaunchInput)
+            .ToArray();
+        var fieldIds = launchFields.Select(field => field.Id).ToHashSet();
         if (submittedValues.Keys.Any(id => !fieldIds.Contains(id)))
         {
             throw new ProcessValidationException(
-                "A submitted request field does not belong to the published template.");
+                "Only launch input fields can be submitted when starting a process.");
         }
 
-        foreach (var field in version.RequestFields.Where(field => field.IsRequired))
+        foreach (var field in launchFields.Where(field =>
+                     field.IsRequired
+                     && field.Source == RequestFieldSource.Manual))
         {
             if (!submittedValues.TryGetValue(field.Id, out var value)
                 || string.IsNullOrWhiteSpace(value))
@@ -70,12 +79,6 @@ internal sealed partial class ProcessService
             }
         }
 
-        if (submittedValues.Values.Any(value => value.Trim().Length > 4000))
-        {
-            throw new ProcessValidationException(
-                "Request values cannot exceed 4000 characters.");
-        }
-
         var process = ProcessInstance.Create(
             template.Id,
             version.Version,
@@ -83,21 +86,34 @@ internal sealed partial class ProcessService
             request.Name,
             actor.Grg,
             actor.DisplayName,
-            UtcNow,
-            version.RequireSequentialSteps);
+            UtcNow);
 
-        foreach (var field in version.RequestFields.OrderBy(field => field.Order))
+        var processGroupsByTemplateGroupId = new Dictionary<Guid, ProcessStepGroup>();
+        foreach (var group in version.StepGroups.OrderBy(group => group.Order))
         {
-            process.AddRequestValue(
-                field.Id,
-                field.Label,
-                field.Type.ToString().ToLowerInvariant(),
-                field.IsRequired,
-                submittedValues.GetValueOrDefault(field.Id, string.Empty),
-                field.Order);
+            processGroupsByTemplateGroupId[group.Id] = process.AddStepGroup(
+                group.Id,
+                group.Name,
+                group.Description,
+                group.Order,
+                group.ExecutionMode);
         }
 
-        foreach (var step in version.Steps.OrderBy(step => step.Order))
+        foreach (var group in version.StepGroups)
+        {
+            foreach (var prerequisite in group.PrerequisiteGroups)
+            {
+                process.AddStepGroupPrerequisite(
+                    processGroupsByTemplateGroupId[group.Id].Id,
+                    processGroupsByTemplateGroupId[prerequisite.Id].Id);
+            }
+        }
+
+        var processStepsByTemplateStepId = new Dictionary<Guid, ProcessStep>();
+        foreach (var step in version.Steps
+                     .OrderBy(step => processGroupsByTemplateGroupId[
+                         step.TemplateStepGroupId].Order)
+                     .ThenBy(step => step.Order))
         {
             string? assigneeName = null;
             if (step.DefaultAssigneeUserId.HasValue)
@@ -118,8 +134,9 @@ internal sealed partial class ProcessService
                 assigneeName = assignee.DisplayName;
             }
 
-            process.AddStep(
+            processStepsByTemplateStepId[step.Id] = process.AddStep(
                 step.Id,
+                processGroupsByTemplateGroupId[step.TemplateStepGroupId].Id,
                 step.Order,
                 step.Title,
                 step.RequiredRoleId,
@@ -134,7 +151,115 @@ internal sealed partial class ProcessService
                 step.NoteRequired);
         }
 
+        foreach (var field in version.RequestFields.OrderBy(field => field.Order))
+        {
+            var value = field.Kind == ProcessInformationKind.StepOutput
+                ? string.Empty
+                : field.Source switch
+                {
+                    RequestFieldSource.CurrentUserName => actor.DisplayName,
+                    RequestFieldSource.CurrentUserEmail => actor.Email,
+                    _ => submittedValues.GetValueOrDefault(field.Id, string.Empty),
+                };
+            ProcessInformationValidator.Validate(
+                field.Type,
+                field.IsRequired && field.Kind == ProcessInformationKind.LaunchInput,
+                value,
+                field.Options.Select(option => option.Value));
+            process.AddInformationValue(
+                field.Id,
+                field.Label,
+                field.Type.ToString().ToLowerInvariant(),
+                field.IsRequired,
+                value,
+                field.Order,
+                field.Kind,
+                field.Pinned,
+                field.ProducingTemplateStepId.HasValue
+                    ? processStepsByTemplateStepId[
+                        field.ProducingTemplateStepId.Value].Id
+                    : null,
+                field.Options
+                    .OrderBy(option => option.Order)
+                    .Select(option => option.Value),
+                field.Kind == ProcessInformationKind.LaunchInput
+                    ? actor.Grg
+                    : null,
+                field.Kind == ProcessInformationKind.LaunchInput
+                    ? actor.DisplayName
+                    : null,
+                field.Kind == ProcessInformationKind.LaunchInput
+                    ? UtcNow
+                    : null);
+        }
+
         dbContext.Processes.Add(process);
+        await SaveAsync(cancellationToken);
+        return MapDetails(process);
+    }
+
+    public async Task<ProcessDetails> UpdateInformationAsync(
+        Guid pirg,
+        Guid rfrg,
+        UpdateProcessInformationRequest request,
+        CurrentUserProfile actor,
+        CancellationToken cancellationToken)
+    {
+        var process = await RequireProcessAsync(pirg, cancellationToken);
+        var information = process.InformationValues.SingleOrDefault(
+            value => value.SourceRequestFieldId == rfrg)
+            ?? throw new ProcessNotFoundException(
+                "The process information field was not found.");
+        var hasGlobalAccess = HasPermission(
+            actor,
+            PermissionContracts.UpdateProcessInformation);
+        var allowed = hasGlobalAccess
+            || (
+                information.Kind == ProcessInformationKind.LaunchInput
+                && process.OwnerUserId == actor.Grg)
+            || (
+                information.Kind == ProcessInformationKind.StepOutput
+                && await CanEditStepOutputAsync(
+                    process,
+                    information,
+                    actor,
+                    cancellationToken));
+        if (!allowed)
+        {
+            throw new ProcessForbiddenException(
+                "The current user cannot update this process information.");
+        }
+
+        if (!Enum.TryParse<RequestFieldType>(
+                information.FieldType,
+                true,
+                out var type))
+        {
+            throw new ProcessValidationException(
+                "The snapshotted process information type is invalid.");
+        }
+
+        ProcessInformationValidator.Validate(
+            type,
+            information.IsRequired,
+            request.Value ?? string.Empty,
+            information.Options);
+        EnsureRowVersion(information.RowVersion, request.RowVersion);
+        try
+        {
+            var auditEvent = process.UpdateInformationValue(
+                rfrg,
+                request.Value ?? string.Empty,
+                actor.Grg,
+                actor.DisplayName,
+                UtcNow);
+            dbContext.ProcessAuditEvents.Add(auditEvent);
+        }
+        catch (InvalidOperationException exception)
+        {
+            throw new ProcessConflictException(exception.Message);
+        }
+
         await SaveAsync(cancellationToken);
         return MapDetails(process);
     }

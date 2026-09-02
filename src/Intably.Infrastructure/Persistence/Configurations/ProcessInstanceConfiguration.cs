@@ -47,13 +47,19 @@ internal sealed class ProcessInstanceConfiguration
             .OnDelete(DeleteBehavior.Restrict);
 
         builder
+            .HasMany(process => process.StepGroups)
+            .WithOne()
+            .HasForeignKey(group => group.ProcessId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        builder
             .HasMany(process => process.Steps)
             .WithOne()
             .HasForeignKey(step => step.ProcessId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder
-            .HasMany(process => process.RequestValues)
+            .HasMany(process => process.InformationValues)
             .WithOne()
             .HasForeignKey(value => value.ProcessId)
             .OnDelete(DeleteBehavior.Cascade);
