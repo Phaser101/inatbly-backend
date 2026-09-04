@@ -156,7 +156,9 @@ The information update body is
 contracts expose `informationFields`; process start and detail contracts expose
 `informationValues`. Information fields retain stable `rfrg` identifiers and
 identify their `LaunchInput` or `StepOutput` kind, pinning, and optional
-producing step.
+producing step. Process starts must provide launch input values explicitly;
+authenticated user names and email addresses are not auto-filled. Step output
+values are entered through the information update endpoint.
 
 ## Application permissions
 

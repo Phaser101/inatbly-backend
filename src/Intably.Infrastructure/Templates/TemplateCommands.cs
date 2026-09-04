@@ -140,7 +140,6 @@ internal sealed partial class TemplateService
                     field.Type.ToString(),
                     field.IsRequired,
                     field.Placeholder,
-                    field.Source.ToString(),
                     field.Kind.ToString(),
                     field.Pinned,
                     field.ProducingTemplateStepId,

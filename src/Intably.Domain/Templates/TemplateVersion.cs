@@ -93,7 +93,6 @@ public sealed class TemplateVersion : Entity
         RequestFieldType type,
         bool isRequired,
         string placeholder,
-        RequestFieldSource source,
         ProcessInformationKind kind,
         bool pinned,
         Guid? producingTemplateStepId,
@@ -107,7 +106,6 @@ public sealed class TemplateVersion : Entity
                 type,
                 isRequired,
                 placeholder,
-                source,
                 kind,
                 pinned,
                 producingTemplateStepId,
@@ -214,14 +212,6 @@ public sealed class TemplateVersion : Entity
         {
             throw new InvalidOperationException(
                 "Step output fields must reference a step in this template.");
-        }
-
-        if (_requestFields.Any(field =>
-                field.Kind == ProcessInformationKind.StepOutput
-                && field.Source != RequestFieldSource.Manual))
-        {
-            throw new InvalidOperationException(
-                "Step output fields cannot use a current-user source.");
         }
 
         if (_requestFields.Any(field =>

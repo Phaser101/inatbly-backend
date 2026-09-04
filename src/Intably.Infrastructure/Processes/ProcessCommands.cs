@@ -67,9 +67,7 @@ internal sealed partial class ProcessService
                 "Only launch input fields can be submitted when starting a process.");
         }
 
-        foreach (var field in launchFields.Where(field =>
-                     field.IsRequired
-                     && field.Source == RequestFieldSource.Manual))
+        foreach (var field in launchFields.Where(field => field.IsRequired))
         {
             if (!submittedValues.TryGetValue(field.Id, out var value)
                 || string.IsNullOrWhiteSpace(value))
@@ -155,12 +153,7 @@ internal sealed partial class ProcessService
         {
             var value = field.Kind == ProcessInformationKind.StepOutput
                 ? string.Empty
-                : field.Source switch
-                {
-                    RequestFieldSource.CurrentUserName => actor.DisplayName,
-                    RequestFieldSource.CurrentUserEmail => actor.Email,
-                    _ => submittedValues.GetValueOrDefault(field.Id, string.Empty),
-                };
+                : submittedValues.GetValueOrDefault(field.Id, string.Empty);
             ProcessInformationValidator.Validate(
                 field.Type,
                 field.IsRequired && field.Kind == ProcessInformationKind.LaunchInput,

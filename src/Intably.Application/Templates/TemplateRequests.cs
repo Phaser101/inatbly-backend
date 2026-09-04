@@ -20,7 +20,6 @@ public sealed record SaveTemplateInformationField(
     string Type,
     bool Required,
     string Placeholder,
-    string Source,
     string Kind,
     bool Pinned,
     Guid? ProducingPtsrg,

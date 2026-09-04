@@ -143,7 +143,6 @@ internal sealed partial class TemplateService(
                 ParseFieldType(field.Type),
                 field.Required,
                 field.Placeholder,
-                ParseFieldSource(field.Source),
                 kind,
                 field.Pinned,
                 field.ProducingPtsrg.HasValue
@@ -226,7 +225,6 @@ internal sealed partial class TemplateService(
         {
             ParseInformationKind(field.Kind);
             ParseFieldType(field.Type);
-            ParseFieldSource(field.Source);
             if (field.ProducingPtsrg.HasValue
                 && !stepIds.Contains(field.ProducingPtsrg.Value))
             {
@@ -299,14 +297,5 @@ internal sealed partial class TemplateService(
             && Enum.IsDefined(type)
             ? type
             : throw new ArgumentException($"Unknown request field type '{value}'.");
-    }
-
-    private static RequestFieldSource ParseFieldSource(string value)
-    {
-        return Enum.TryParse<RequestFieldSource>(value, true, out var source)
-            && Enum.IsDefined(source)
-            ? source
-            : throw new ArgumentException(
-                $"Unknown request field source '{value}'.");
     }
 }

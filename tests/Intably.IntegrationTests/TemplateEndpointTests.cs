@@ -27,7 +27,6 @@ public sealed class TemplateEndpointTests
                     "text",
                     false,
                     "",
-                    "currentUserName",
                     "StepOutput",
                     true,
                     null,
@@ -267,9 +266,6 @@ public sealed class TemplateEndpointTests
         var invalidType = WithInformationEnum(
             CreateRequest("Invalid type"),
             type: "999");
-        var invalidSource = WithInformationEnum(
-            CreateRequest("Invalid source"),
-            source: "999");
         var invalidKind = WithInformationEnum(
             CreateRequest("Invalid kind"),
             kind: "999");
@@ -278,7 +274,6 @@ public sealed class TemplateEndpointTests
         {
             await client.PostAsJsonAsync("/api/templates", invalidExecutionMode),
             await client.PostAsJsonAsync("/api/templates", invalidType),
-            await client.PostAsJsonAsync("/api/templates", invalidSource),
             await client.PostAsJsonAsync("/api/templates", invalidKind),
         };
 
@@ -306,7 +301,6 @@ public sealed class TemplateEndpointTests
                     "email",
                     true,
                     "",
-                    "currentUserEmail",
                     "LaunchInput",
                     true,
                     null,
@@ -316,7 +310,6 @@ public sealed class TemplateEndpointTests
                     "select",
                     true,
                     "",
-                    "manual",
                     "StepOutput",
                     true,
                     executionStepId,
@@ -478,7 +471,6 @@ public sealed class TemplateEndpointTests
                     "text",
                     true,
                     "Enter the release name",
-                    "manual",
                     "LaunchInput",
                     true,
                     null,
@@ -544,7 +536,6 @@ public sealed class TemplateEndpointTests
                     "text",
                     false,
                     "",
-                    "manual",
                     "StepOutput",
                     false,
                     stepId,
@@ -565,7 +556,6 @@ public sealed class TemplateEndpointTests
     private static SaveTemplateRequest WithInformationEnum(
         SaveTemplateRequest request,
         string? type = null,
-        string? source = null,
         string? kind = null)
     {
         var field = request.InformationFields.Single();
@@ -576,7 +566,6 @@ public sealed class TemplateEndpointTests
                 field with
                 {
                     Type = type ?? field.Type,
-                    Source = source ?? field.Source,
                     Kind = kind ?? field.Kind,
                 },
             ],

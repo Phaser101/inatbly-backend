@@ -40,7 +40,6 @@ public sealed record TemplateInformationFieldDetails(
     string Type,
     bool Required,
     string Placeholder,
-    string Source,
     string Kind,
     bool Pinned,
     Guid? ProducingPtsrg,

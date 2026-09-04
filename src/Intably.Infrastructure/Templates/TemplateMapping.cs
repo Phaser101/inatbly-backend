@@ -54,7 +54,6 @@ internal sealed partial class TemplateService
             field.Type.ToString().ToLowerInvariant(),
             field.IsRequired,
             field.Placeholder,
-            ToCamelCase(field.Source.ToString()),
             field.Kind.ToString(),
             field.Pinned,
             field.ProducingTemplateStepId,
@@ -91,10 +90,5 @@ internal sealed partial class TemplateService
         return id.HasValue && names.TryGetValue(id.Value, out var name)
             ? name
             : null;
-    }
-
-    private static string ToCamelCase(string value)
-    {
-        return char.ToLowerInvariant(value[0]) + value[1..];
     }
 }

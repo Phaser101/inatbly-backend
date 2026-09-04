@@ -17,7 +17,6 @@ public sealed class TemplateRequestField : Entity
         RequestFieldType type,
         bool isRequired,
         string placeholder,
-        RequestFieldSource source,
         ProcessInformationKind kind,
         bool pinned,
         Guid? producingTemplateStepId)
@@ -28,7 +27,6 @@ public sealed class TemplateRequestField : Entity
         Type = type;
         IsRequired = isRequired;
         Placeholder = placeholder;
-        Source = source;
         Kind = kind;
         Pinned = pinned;
         ProducingTemplateStepId = producingTemplateStepId;
@@ -46,8 +44,6 @@ public sealed class TemplateRequestField : Entity
 
     public string Placeholder { get; private set; } = string.Empty;
 
-    public RequestFieldSource Source { get; private set; }
-
     public ProcessInformationKind Kind { get; private set; }
 
     public bool Pinned { get; private set; }
@@ -63,7 +59,6 @@ public sealed class TemplateRequestField : Entity
         RequestFieldType type,
         bool isRequired,
         string placeholder,
-        RequestFieldSource source,
         ProcessInformationKind kind,
         bool pinned,
         Guid? producingTemplateStepId,
@@ -76,7 +71,6 @@ public sealed class TemplateRequestField : Entity
             type,
             isRequired,
             placeholder.Trim(),
-            source,
             kind,
             pinned,
             producingTemplateStepId);
